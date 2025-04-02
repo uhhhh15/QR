@@ -31,7 +31,7 @@
     position: fixed;
     left: 50%;
     top: 190px;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(5vh);
     z-index: 1001;
     background-color: rgba(0, 0, 0, 0.85);
     border: 1px solid #555;
