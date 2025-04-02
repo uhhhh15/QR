@@ -1,0 +1,124 @@
+/* 隐藏原有的快捷回复栏 */
+#qr--bar {
+    height: 0px !important;
+    overflow: hidden !important;
+}
+
+/* 快速回复按钮样式 */
+#quick-reply-menu-button {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 150px;
+    z-index: 1000;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+#quick-reply-menu-button:hover {
+    background-color: rgba(40, 40, 40, 0.9);
+}
+
+/* 快速回复菜单容器 */
+#quick-reply-menu {
+    display: none;
+    position: fixed;
+    left: 50%;
+    top: 190px;
+    transform: translateX(-50%);
+    z-index: 1001;
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 15px 10px 10px 10px;
+    width: 600px;
+    max-width: 80vw;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+/* 菜单布局 */
+.quick-reply-menu-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+/* 左右容器共有样式 */
+.quick-reply-list {
+    width: 48%;
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    transition: border-color 0.3s;
+}
+
+/* 标题样式 */
+.quick-reply-list-title {
+    text-align: center;
+    color: #ccc;
+    font-size: 14px;
+    margin-bottom: 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #444;
+    transition: color 0.3s, border-bottom-color 0.3s;
+}
+
+/* 快捷回复项样式 */
+.quick-reply-item {
+    display: block;
+    width: 100%;
+    padding: 5px 8px;
+    margin: 4px 0;
+    background-color: rgba(60, 60, 60, 0.7);
+    color: white;
+    text-align: center;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: none;
+}
+
+.quick-reply-item:hover {
+    background-color: rgba(100, 100, 100, 0.9);
+}
+
+/* 滚动条样式 */
+.quick-reply-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.quick-reply-list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
+
+.quick-reply-list::-webkit-scrollbar-thumb {
+    background: rgba(100, 100, 100, 0.5);
+    border-radius: 3px;
+}
+
+.quick-reply-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(120, 120, 120, 0.7);
+}
+
+/* 空列表提示 */
+.quick-reply-empty {
+    color: #666;
+    text-align: center;
+    padding: 10px;
+    font-style: italic;
+    font-size: 12px;
+    transition: color 0.3s;
+}
