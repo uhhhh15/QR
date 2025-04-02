@@ -4,7 +4,7 @@
 export const sharedState = {
     menuVisible: false,
     domElements: {
-        button: null,
+        rocketButton: null,
         menu: null,
         chatItemsContainer: null,
         globalItemsContainer: null,
