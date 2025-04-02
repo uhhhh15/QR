@@ -13,12 +13,12 @@ export function createSettingsHtml() {
     <div id="${Constants.ID_SETTINGS_CONTAINER}" class="extension-settings">
         <div class="inline-drawer">
             <div class="inline-drawer-toggle inline-drawer-header">
-                <b>快速回复增强菜单</b>
+                <b>QR助手</b>
                 <div class="inline-drawer-icon fa-solid fa-circle-chevron-down"></div>
             </div>
             <div class="inline-drawer-content">
                 <p>此插件隐藏了原有的快捷回复栏，并创建了一个新的快速回复菜单。</p>
-                <p>点击发送按钮旁边的火箭图标可以打开或关闭菜单。</p>
+                <p>点击发送按钮旁边的小火箭图标可以打开或关闭菜单。</p>
                 <div class="flex-container flexGap5">
                     <label for="${Constants.ID_SETTINGS_ENABLED_DROPDOWN}">插件状态:</label>
                     <select id="${Constants.ID_SETTINGS_ENABLED_DROPDOWN}" class="text_pole">
