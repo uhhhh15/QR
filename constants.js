@@ -3,7 +3,8 @@
 export const EXTENSION_NAME = "quick-reply-menu";
 
 // --- DOM Element IDs ---
-export const ID_BUTTON = 'quick-reply-menu-button';
+export const ID_BUTTON = 'quick-reply-menu-button'; // 保留用于向后兼容
+export const ID_ROCKET_BUTTON = 'quick-reply-rocket-button'; // 新的火箭按钮ID
 export const ID_MENU = 'quick-reply-menu';
 export const ID_CHAT_LIST_CONTAINER = 'chat-quick-replies';
 export const ID_GLOBAL_LIST_CONTAINER = 'global-quick-replies';
