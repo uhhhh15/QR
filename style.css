@@ -4,25 +4,25 @@
     overflow: hidden !important;
 }
 
-/* 快速回复按钮样式 */
-#quick-reply-menu-button {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    top: 150px;
-    z-index: 1000;
-    background-color: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: 1px solid #444;
-    border-radius: 5px;
-    padding: 5px 10px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s;
+/* --- 火箭按钮 --- */
+#quick-reply-rocket-button {
+    color: #a0a0a0; /* 默认颜色：灰色 */
+    font-size: 1.2em; /* 图标大小 */
+    line-height: var(--buttons-bar-height); /* 行高与按钮栏一致 */
+    height: var(--buttons-bar-height);      /* 高度与按钮栏一致 */
+    display: flex;         /* 使用 Flexbox 布局 */
+    align-items: center;   /* 垂直居中图标 */
+    margin-right: 4px;     /* 右边距 */
+    cursor: pointer;       /* 鼠标样式：手型 */
+    transition: color 0.2s;/* 颜色变化过渡效果 */
 }
 
-#quick-reply-menu-button:hover {
-    background-color: rgba(40, 40, 40, 0.9);
+#quick-reply-rocket-button:hover {
+    color: #ffffff; /* 鼠标悬停时颜色：白色 */
+}
+
+#quick-reply-rocket-button.active {
+    color: #55aaff; /* 菜单打开时的颜色：蓝色 */
 }
 
 /* 快速回复菜单容器 */
