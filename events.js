@@ -1,14 +1,14 @@
 // events.js
+import * as Constants from './constants.js';
 import { sharedState, setMenuVisible } from './state.js';
 import { updateMenuVisibilityUI } from './ui.js';
 import { triggerQuickReply } from './api.js';
 import { handleSettingsChange as settingsChangeHandler } from './settings.js'; // Alias import
 
-
 /**
- * Handles clicks on the main quick reply button. Toggles menu visibility state and updates UI.
+ * Handles clicks on the rocket button. Toggles menu visibility state and updates UI.
  */
-export function handleButtonClick() {
+export function handleRocketButtonClick() {
     setMenuVisible(!sharedState.menuVisible); // Toggle state
     updateMenuVisibilityUI(); // Update UI based on new state
 }
@@ -18,12 +18,12 @@ export function handleButtonClick() {
  * @param {Event} event
  */
 export function handleOutsideClick(event) {
-    const { menu, button } = sharedState.domElements;
+    const { menu, rocketButton } = sharedState.domElements;
     if (sharedState.menuVisible &&
-        menu && button &&
+        menu && rocketButton &&
         !menu.contains(event.target) &&
-        event.target !== button &&
-        !button.contains(event.target)
+        event.target !== rocketButton &&
+        !rocketButton.contains(event.target)
        ) {
         setMenuVisible(false); // Update state
         updateMenuVisibilityUI(); // Update UI
@@ -59,9 +59,9 @@ export async function handleQuickReplyClick(event) {
  * Sets up all event listeners for the plugin.
  */
 export function setupEventListeners() {
-    const { button, settingsDropdown } = sharedState.domElements;
+    const { rocketButton, settingsDropdown } = sharedState.domElements;
 
-    button?.addEventListener('click', handleButtonClick);
+    rocketButton?.addEventListener('click', handleRocketButtonClick);
     document.addEventListener('click', handleOutsideClick);
 
     // Item click listeners are added dynamically in ui.js (createQuickReplyItem),
