@@ -2,9 +2,31 @@
 import { extension_settings } from "../../../extensions.js";
 import * as Constants from './constants.js';
 import { sharedState } from './state.js';
-import { createMenuButton, createMenuElement } from './ui.js';
+import { createMenuElement } from './ui.js';
 import { createSettingsHtml, loadAndApplySettings } from './settings.js';
 import { setupEventListeners } from './events.js';
+
+/**
+ * Injects the rocket button next to the send button
+ * @returns {HTMLElement|null} The created rocket button or null if send button wasn't found
+ */
+function injectRocketButton() {
+    // Find the send button in the UI
+    const sendButton = $('#send_but');
+    if (sendButton.length === 0) {
+        console.error(`[${Constants.EXTENSION_NAME}] Could not find send button to inject rocket button`);
+        return null;
+    }
+    
+    // Create the rocket button HTML
+    const rocketButtonHtml = `<div id="${Constants.ID_ROCKET_BUTTON}" class="fa-solid fa-rocket interactable secondary-button" title="快速回复菜单" aria-haspopup="true" aria-expanded="false" aria-controls="${Constants.ID_MENU}"></div>`;
+    
+    // Insert the rocket button before the send button
+    sendButton.before(rocketButtonHtml);
+    
+    // Return the reference to the newly created button
+    return document.getElementById(Constants.ID_ROCKET_BUTTON);
+}
 
 /**
  * Initializes the plugin: creates UI, sets up listeners, loads settings.
@@ -12,19 +34,20 @@ import { setupEventListeners } from './events.js';
 function initializePlugin() {
     console.log(`[${Constants.EXTENSION_NAME}] Initializing...`);
 
-    // Create core UI elements
-    const button = createMenuButton();
+    // Create and inject the rocket button
+    const rocketButton = injectRocketButton();
+    
+    // Create menu element
     const menu = createMenuElement();
 
     // Store references in shared state
-    sharedState.domElements.button = button;
+    sharedState.domElements.rocketButton = rocketButton;
     sharedState.domElements.menu = menu;
     sharedState.domElements.chatItemsContainer = menu.querySelector(`#${Constants.ID_CHAT_ITEMS}`);
     sharedState.domElements.globalItemsContainer = menu.querySelector(`#${Constants.ID_GLOBAL_ITEMS}`);
     sharedState.domElements.settingsDropdown = document.getElementById(Constants.ID_SETTINGS_ENABLED_DROPDOWN); // Get after settings HTML is added
 
-    // Append elements to the body
-    document.body.appendChild(button);
+    // Append menu to the body
     document.body.appendChild(menu);
 
     // Load initial settings state and apply it to UI
