@@ -30,8 +30,8 @@
     display: none;
     position: fixed;
     left: 50%;
-    top: 190px;
-    transform: translateX(-50%);
+    top: 50%;
+    transform: translate(-50%, -50%);
     z-index: 1001;
     background-color: rgba(0, 0, 0, 0.85);
     border: 1px solid #555;
@@ -96,7 +96,7 @@
 
 /* 滚动条样式 */
 .quick-reply-list::-webkit-scrollbar {
-    width: 6px;
+    width: 4.5px;
 }
 
 .quick-reply-list::-webkit-scrollbar-track {
