@@ -18,7 +18,7 @@ export function createSettingsHtml() {
             </div>
             <div class="inline-drawer-content">
                 <p>此插件隐藏了原有的快捷回复栏，并创建了一个新的快速回复菜单。</p>
-                <p>点击屏幕中央顶部的"[快速回复]"按钮可以打开菜单。</p>
+                <p>点击发送按钮旁边的火箭图标可以打开或关闭菜单。</p>
                 <div class="flex-container flexGap5">
                     <label for="${Constants.ID_SETTINGS_ENABLED_DROPDOWN}">插件状态:</label>
                     <select id="${Constants.ID_SETTINGS_ENABLED_DROPDOWN}" class="text_pole">
@@ -55,8 +55,8 @@ export function handleSettingsChange(event) {
     extension_settings[Constants.EXTENSION_NAME].enabled = isEnabled;
     saveSettingsDebounced();
 
-    if (sharedState.domElements.button) {
-        sharedState.domElements.button.style.display = isEnabled ? '' : 'none';
+    if (sharedState.domElements.rocketButton) {
+        sharedState.domElements.rocketButton.style.display = isEnabled ? '' : 'none';
     }
     if (!isEnabled) {
         setMenuVisible(false); // Update state
@@ -79,8 +79,8 @@ export function loadAndApplySettings() {
      if (dropdown) {
         dropdown.value = String(isEnabled);
      }
-    if (!isEnabled && sharedState.domElements.button) {
-        sharedState.domElements.button.style.display = 'none';
+    if (!isEnabled && sharedState.domElements.rocketButton) {
+        sharedState.domElements.rocketButton.style.display = 'none';
     }
 
      console.log(`[${Constants.EXTENSION_NAME}] Initial enabled state: ${isEnabled}`);
