@@ -1,16 +1,15 @@
 // ui.js
 import * as Constants from './constants.js';
-import { sharedState, setMenuVisible } from './state.js';
+import { handleQuickReplyClick } from './events.js';
 import { fetchQuickReplies } from './api.js';
-import { handleQuickReplyClick } from './events.js'; // Import handler reference
-
-// --- UI Creation Functions ---
+import { sharedState } from './state.js';
 
 /**
- * Creates the main quick reply button.
+ * Creates the main quick reply button (legacy, kept for reference).
  * @returns {HTMLElement} The created button element.
  */
 export function createMenuButton() {
+    // This function is kept for reference but no longer used
     const button = document.createElement('button');
     button.id = Constants.ID_BUTTON;
     button.type = 'button';
@@ -22,109 +21,131 @@ export function createMenuButton() {
 }
 
 /**
- * Creates the quick reply menu structure.
+ * Creates the menu element.
  * @returns {HTMLElement} The created menu element.
  */
 export function createMenuElement() {
     const menu = document.createElement('div');
     menu.id = Constants.ID_MENU;
     menu.setAttribute('role', Constants.ARIA_ROLE_MENU);
-    menu.setAttribute('aria-labelledby', Constants.ID_BUTTON);
-    menu.style.display = 'none'; // Initially hidden
+    menu.tabIndex = -1;
+    menu.style.display = 'none';
 
-    const chatTitleId = `${Constants.ID_CHAT_LIST_CONTAINER}-title`;
-    const globalTitleId = `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`;
+    const container = document.createElement('div');
+    container.className = Constants.CLASS_MENU_CONTAINER;
 
-    menu.innerHTML = `
-        <div class="${Constants.CLASS_MENU_CONTAINER}">
-            <div id="${Constants.ID_CHAT_LIST_CONTAINER}" class="${Constants.CLASS_LIST}" role="${Constants.ARIA_ROLE_GROUP}" aria-labelledby="${chatTitleId}">
-                <div id="${chatTitleId}" class="${Constants.CLASS_LIST_TITLE}">聊天快捷回复</div>
-                <div id="${Constants.ID_CHAT_ITEMS}"></div>
-            </div>
-            <div id="${Constants.ID_GLOBAL_LIST_CONTAINER}" class="${Constants.CLASS_LIST}" role="${Constants.ARIA_ROLE_GROUP}" aria-labelledby="${globalTitleId}">
-                <div id="${globalTitleId}" class="${Constants.CLASS_LIST_TITLE}">全局快捷回复</div>
-                <div id="${Constants.ID_GLOBAL_ITEMS}"></div>
-            </div>
-        </div>
-    `;
+    // Chat quick replies section
+    const chatListContainer = document.createElement('div');
+    chatListContainer.id = Constants.ID_CHAT_LIST_CONTAINER;
+    chatListContainer.className = Constants.CLASS_LIST;
+    chatListContainer.setAttribute('role', Constants.ARIA_ROLE_GROUP);
+
+    const chatTitle = document.createElement('div');
+    chatTitle.className = Constants.CLASS_LIST_TITLE;
+    chatTitle.textContent = '聊天快捷回复';
+    
+    const chatItems = document.createElement('div');
+    chatItems.id = Constants.ID_CHAT_ITEMS;
+
+    chatListContainer.appendChild(chatTitle);
+    chatListContainer.appendChild(chatItems);
+
+    // Global quick replies section
+    const globalListContainer = document.createElement('div');
+    globalListContainer.id = Constants.ID_GLOBAL_LIST_CONTAINER;
+    globalListContainer.className = Constants.CLASS_LIST;
+    globalListContainer.setAttribute('role', Constants.ARIA_ROLE_GROUP);
+
+    const globalTitle = document.createElement('div');
+    globalTitle.className = Constants.CLASS_LIST_TITLE;
+    globalTitle.textContent = '全局快捷回复';
+    
+    const globalItems = document.createElement('div');
+    globalItems.id = Constants.ID_GLOBAL_ITEMS;
+
+    globalListContainer.appendChild(globalTitle);
+    globalListContainer.appendChild(globalItems);
+
+    // Append sections to container
+    container.appendChild(chatListContainer);
+    container.appendChild(globalListContainer);
+    menu.appendChild(container);
+
     return menu;
 }
 
 /**
- * Creates a single quick reply item (button).
- * @param {object} qr - The quick reply object { setName, label, message }.
- * @returns {HTMLElement} The created button element.
+ * Creates a single quick reply item.
+ * @param {object} reply - The quick reply data
+ * @returns {HTMLElement} The button element
  */
-function createQuickReplyItem(qr) {
+export function createQuickReplyItem(reply) {
     const item = document.createElement('button');
-    item.type = 'button';
     item.className = Constants.CLASS_ITEM;
-    item.innerText = qr.label;
-    item.title = qr.message.substring(0, 100) + (qr.message.length > 100 ? '...' : '');
     item.setAttribute('role', Constants.ARIA_ROLE_MENUITEM);
-    // Add data attributes to pass info to the generic handler
-    item.dataset.setName = qr.setName;
-    item.dataset.label = qr.label;
-    // Attach the generic click handler
+    item.dataset.setName = reply.setName;
+    item.dataset.label = reply.label;
+    item.title = reply.message.length > 50 ? reply.message.slice(0, 50) + '...' : reply.message;
+    item.textContent = reply.label;
+    
+    // Add click handler directly to this element
     item.addEventListener('click', handleQuickReplyClick);
+    
     return item;
 }
 
-
-// --- Rendering Functions ---
-
 /**
- * Renders the fetched quick replies into the menu lists.
- * @param {Array<object>} chatReplies
- * @param {Array<object>} globalReplies
+ * Creates an empty placeholder element.
+ * @param {string} message - The message to display
+ * @returns {HTMLElement} The empty placeholder element
  */
-function renderQuickReplies(chatReplies, globalReplies) {
-    renderList(sharedState.domElements.chatItemsContainer, chatReplies, "没有可用的聊天快捷回复");
-    renderList(sharedState.domElements.globalItemsContainer, globalReplies, "没有可用的全局快捷回复");
+export function createEmptyPlaceholder(message) {
+    const empty = document.createElement('div');
+    empty.className = Constants.CLASS_EMPTY;
+    empty.textContent = message;
+    return empty;
 }
 
 /**
- * Renders a list of quick reply items into a given container.
- * @param {HTMLElement} container - The container element to render into.
- * @param {Array<object>} replies - Array of quick reply objects.
- * @param {string} emptyMessage - Message to display if the list is empty.
+ * Renders quick replies into the menu containers.
+ * @param {Array<object>} chatReplies - Chat-specific quick replies
+ * @param {Array<object>} globalReplies - Global quick replies
  */
-function renderList(container, replies, emptyMessage) {
-    if (!container) return; // Safety check
+export function renderQuickReplies(chatReplies, globalReplies) {
+    const { chatItemsContainer, globalItemsContainer } = sharedState.domElements;
+    if (!chatItemsContainer || !globalItemsContainer) return;
 
-    container.innerHTML = ''; // Clear previous items
+    // Clear existing content
+    chatItemsContainer.innerHTML = '';
+    globalItemsContainer.innerHTML = '';
 
-    if (replies.length > 0) {
-        const fragment = document.createDocumentFragment();
-        replies.forEach(qr => {
-            fragment.appendChild(createQuickReplyItem(qr));
+    // Render chat replies
+    if (chatReplies.length > 0) {
+        chatReplies.forEach(reply => {
+            chatItemsContainer.appendChild(createQuickReplyItem(reply));
         });
-        container.appendChild(fragment);
     } else {
-        displayEmptyMessage(container, emptyMessage);
+        chatItemsContainer.appendChild(createEmptyPlaceholder('没有可用的聊天快捷回复'));
+    }
+
+    // Render global replies
+    if (globalReplies.length > 0) {
+        globalReplies.forEach(reply => {
+            globalItemsContainer.appendChild(createQuickReplyItem(reply));
+        });
+    } else {
+        globalItemsContainer.appendChild(createEmptyPlaceholder('没有可用的全局快捷回复'));
     }
 }
-
-/**
- * Displays an empty message in a container.
- * @param {HTMLElement} container
- * @param {string} message
- */
-function displayEmptyMessage(container, message) {
-    container.innerHTML = `<div class="${Constants.CLASS_EMPTY}">${message}</div>`;
-}
-
-
-// --- UI State Update Functions ---
 
 /**
  * Updates the visibility of the menu UI and related ARIA attributes based on sharedState.
  */
 export function updateMenuVisibilityUI() {
-    const { menu, button } = sharedState.domElements;
+    const { menu, rocketButton } = sharedState.domElements;
     const show = sharedState.menuVisible;
 
-    if (!menu || !button) return;
+    if (!menu || !rocketButton) return;
 
     if (show) {
         // Update content before showing
@@ -132,13 +153,17 @@ export function updateMenuVisibilityUI() {
         renderQuickReplies(chat, global);
 
         menu.style.display = 'block';
-        button.setAttribute('aria-expanded', 'true');
+        rocketButton.setAttribute('aria-expanded', 'true');
+        // Add active class for styling
+        rocketButton.classList.add('active');
 
         // Optional: Focus the first item in the menu for keyboard navigation
         const firstItem = menu.querySelector(`.${Constants.CLASS_ITEM}`);
         firstItem?.focus();
     } else {
         menu.style.display = 'none';
-        button.setAttribute('aria-expanded', 'false');
+        rocketButton.setAttribute('aria-expanded', 'false');
+        // Remove active class
+        rocketButton.classList.remove('active');
     }
 }
