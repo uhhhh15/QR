@@ -1,10 +1,10 @@
-/* 插件启用时隐藏原始快捷回复栏 */
+/* 插件启用时隐藏原始快速回复栏 */
 body.qra-enabled #qr--bar {
     height: 0px !important;
     overflow: hidden !important;
 }
 
-/* 插件禁用时显示原始快捷回复栏 */
+/* 插件禁用时显示原始快速回复栏 */
 body.qra-disabled #qr--bar {
     /* 恢复默认样式 */
     height: auto !important;
@@ -16,7 +16,7 @@ body.qra-disabled #quick-reply-rocket-button {
     display: none !important;
 }
 
-/* --- 快捷回复按钮 --- */
+/* --- 快速回复按钮 --- */
 #quick-reply-rocket-button {
     color: var(--button-text-color, #a0a0a0); /* 使用变量或默认为灰色 */
     font-size: 1.2em; /* 图标大小 */
@@ -140,7 +140,7 @@ body.qra-disabled #quick-reply-rocket-button {
     transition: color 0.3s, border-bottom-color 0.3s;
 }
 
-/* 快捷回复项样式 */
+/* 快速回复项样式 */
 .quick-reply-item {
     display: block;
     width: 100%;
