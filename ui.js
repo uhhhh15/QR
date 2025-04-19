@@ -51,7 +51,7 @@ export function createMenuElement() {
 
     const chatTitle = document.createElement('div');
     chatTitle.className = Constants.CLASS_LIST_TITLE;
-    chatTitle.textContent = '聊天快捷回复';
+    chatTitle.textContent = '聊天快速回复';
     
     const chatItems = document.createElement('div');
     chatItems.id = Constants.ID_CHAT_ITEMS;
@@ -67,7 +67,7 @@ export function createMenuElement() {
 
     const globalTitle = document.createElement('div');
     globalTitle.className = Constants.CLASS_LIST_TITLE;
-    globalTitle.textContent = '全局快捷回复';
+    globalTitle.textContent = '全局快速回复';
     
     const globalItems = document.createElement('div');
     globalItems.id = Constants.ID_GLOBAL_ITEMS;
@@ -173,7 +173,7 @@ export function renderQuickReplies(chatReplies, globalReplies) {
             chatItemsContainer.appendChild(createQuickReplyItem(reply));
         });
     } else {
-        chatItemsContainer.appendChild(createEmptyPlaceholder('没有可用的聊天快捷回复'));
+        chatItemsContainer.appendChild(createEmptyPlaceholder('没有可用的聊天快速回复'));
     }
 
     // Render global replies
@@ -182,7 +182,7 @@ export function renderQuickReplies(chatReplies, globalReplies) {
             globalItemsContainer.appendChild(createQuickReplyItem(reply));
         });
     } else {
-        globalItemsContainer.appendChild(createEmptyPlaceholder('没有可用的全局快捷回复'));
+        globalItemsContainer.appendChild(createEmptyPlaceholder('没有可用的全局快速回复'));
     }
     
     // 为新添加的按钮添加事件监听
