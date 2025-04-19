@@ -31,7 +31,7 @@ function injectRocketButton() {
     const settings = extension_settings[Constants.EXTENSION_NAME];
     const enabled = settings.enabled !== false; // 默认为启用
     
-    // 获取原始快捷回复栏
+    // 获取原始快速回复栏
     const originalQrBar = document.getElementById('qr--bar');
     
     // 根据插件启用状态切换类名
