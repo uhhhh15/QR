@@ -1,8 +1,17 @@
 // ui.js
 import * as Constants from './constants.js';
-import { handleQuickReplyClick } from './events.js';
 import { fetchQuickReplies } from './api.js';
 import { sharedState } from './state.js';
+import { extension_settings } from "./index.js";  
+
+// 重命名这个函数，避免与settings.js的函数冲突
+export function updateButtonIconDisplay() {
+    const button = sharedState.domElements.rocketButton;
+    if (!button) return;
+    
+    const settings = extension_settings[Constants.EXTENSION_NAME];
+    const iconType = settings.iconType || Constants.ICON_TYPES.ROCKET;
+}
 
 /**
  * Creates the main quick reply button (legacy, kept for reference).
@@ -88,23 +97,62 @@ export function createQuickReplyItem(reply) {
     item.title = reply.message.length > 50 ? reply.message.slice(0, 50) + '...' : reply.message;
     item.textContent = reply.label;
     
-    // Add click handler directly to this element
-    item.addEventListener('click', handleQuickReplyClick);
+    // 将事件监听器的设置移到setupEventListeners中处理
+    item.dataset.type = 'quick-reply-item';
     
     return item;
 }
 
 /**
- * Creates an empty placeholder element.
- * @param {string} message - The message to display
- * @returns {HTMLElement} The empty placeholder element
+ * 更新按钮图标显示
+ * 根据设置使用不同的图标和颜色风格
  */
-export function createEmptyPlaceholder(message) {
-    const empty = document.createElement('div');
-    empty.className = Constants.CLASS_EMPTY;
-    empty.textContent = message;
-    return empty;
+export function updateIconDisplay() {
+    const button = sharedState.domElements.rocketButton;
+    if (!button) return;
+    
+    const settings = extension_settings[Constants.EXTENSION_NAME];
+    const iconType = settings.iconType || Constants.ICON_TYPES.ROCKET;
+    
+    // 清除按钮内容
+    button.innerHTML = '';
+    button.className = 'interactable secondary-button';
+    
+    // 如果是自定义图标，使用图片元素
+    if (iconType === Constants.ICON_TYPES.CUSTOM && settings.customIconUrl) {
+        const img = document.createElement('img');
+        img.src = settings.customIconUrl;
+        img.alt = '快速回复';
+        img.style.maxHeight = '20px';
+        img.style.maxWidth = '20px';
+        button.appendChild(img);
+    } else {
+        // 使用FontAwesome图标
+        const iconClass = Constants.ICON_CLASS_MAP[iconType] || Constants.ICON_CLASS_MAP[Constants.ICON_TYPES.ROCKET];
+        button.classList.add('fa-solid', iconClass);
+    }
+    
+    // 应用颜色匹配设置
+    if (settings.matchButtonColors) {
+        // 从发送按钮获取CSS变量并应用到我们的按钮
+        const sendButton = document.getElementById('send_but');
+        if (sendButton) {
+            // 获取计算后的样式
+            const sendButtonStyle = getComputedStyle(sendButton);
+            
+            // 应用颜色和背景色
+            button.style.color = sendButtonStyle.color;
+            
+            // 添加额外的CSS类以匹配发送按钮
+            if (sendButton.classList.contains('primary-button')) {
+                button.classList.remove('secondary-button');
+                button.classList.add('primary-button');
+            }
+        }
+    }
 }
+
+// 其他函数...
 
 /**
  * Renders quick replies into the menu containers.
@@ -136,6 +184,28 @@ export function renderQuickReplies(chatReplies, globalReplies) {
     } else {
         globalItemsContainer.appendChild(createEmptyPlaceholder('没有可用的全局快捷回复'));
     }
+    
+    // 为新添加的按钮添加事件监听
+    document.querySelectorAll(`.${Constants.CLASS_ITEM}`).forEach(item => {
+        item.addEventListener('click', function(event) {
+            // 引用全局事件处理函数
+            if (window.quickReplyMenu && window.quickReplyMenu.handleQuickReplyClick) {
+                window.quickReplyMenu.handleQuickReplyClick(event);
+            }
+        });
+    });
+}
+
+/**
+ * Creates an empty placeholder element.
+ * @param {string} message - The message to display
+ * @returns {HTMLElement} The empty placeholder element
+ */
+export function createEmptyPlaceholder(message) {
+    const empty = document.createElement('div');
+    empty.className = Constants.CLASS_EMPTY;
+    empty.textContent = message;
+    return empty;
 }
 
 /**
