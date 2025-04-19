@@ -1,28 +1,42 @@
-/* 隐藏原有的快捷回复栏 */
-#qr--bar {
+/* 插件启用时隐藏原始快捷回复栏 */
+body.qra-enabled #qr--bar {
     height: 0px !important;
     overflow: hidden !important;
 }
 
-/* --- 火箭按钮 --- */
+/* 插件禁用时显示原始快捷回复栏 */
+body.qra-disabled #qr--bar {
+    /* 恢复默认样式 */
+    height: auto !important;
+    overflow: visible !important;
+}
+
+/* 插件禁用时隐藏火箭按钮 */
+body.qra-disabled #quick-reply-rocket-button {
+    display: none !important;
+}
+
+/* --- 快捷回复按钮 --- */
 #quick-reply-rocket-button {
-    color: #a0a0a0; /* 默认颜色：灰色 */
+    color: var(--button-text-color, #a0a0a0); /* 使用变量或默认为灰色 */
     font-size: 1.2em; /* 图标大小 */
     line-height: var(--buttons-bar-height); /* 行高与按钮栏一致 */
     height: var(--buttons-bar-height);      /* 高度与按钮栏一致 */
     display: flex;         /* 使用 Flexbox 布局 */
     align-items: center;   /* 垂直居中图标 */
+    justify-content: center; /* 水平居中 */
     margin-right: 4px;     /* 右边距 */
     cursor: pointer;       /* 鼠标样式：手型 */
-    transition: color 0.2s;/* 颜色变化过渡效果 */
+    transition: all 0.2s;  /* 过渡效果 */
+    width: 32px;          /* 固定宽度 */
 }
 
 #quick-reply-rocket-button:hover {
-    color: #ffffff; /* 鼠标悬停时颜色：白色 */
+    color: var(--button-text-hover-color, #ffffff); /* 使用变量或默认为白色 */
 }
 
 #quick-reply-rocket-button.active {
-    color: #55aaff; /* 菜单打开时的颜色：蓝色 */
+    color: var(--button-text-active-color, #55aaff); /* 使用变量或默认为蓝色 */
 }
 
 /* 快速回复菜单容器 */
@@ -31,16 +45,70 @@
     position: fixed;
     left: 50%;
     top: 190px;
-    transform: translateX(-50%) translateY(10vh);
+    transform: translateX(-50%);
     z-index: 1001;
-    background-color: rgba(0, 0, 0, 0.85);
-    border: 1px solid #555;
+    background-color: var(--qr-menu-bg-color, rgba(0, 0, 0, 0.85));
+    border: 1px solid var(--qr-menu-border-color, #555);
     border-radius: 8px;
     padding: 15px 10px 10px 10px;
     width: 600px;
     max-width: 80vw;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     transition: background-color 0.3s, border-color 0.3s;
+}
+
+/* 设置样式 */
+.quick-reply-settings-row {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+    gap: 10px;
+}
+
+.quick-reply-settings-row label {
+    min-width: 100px;
+}
+
+/* 调整图标类型下拉框宽度 */
+#quick-reply-menu-icon-type {
+    width: 120px !important;
+    max-width: 120px !important;
+}
+
+/* 调整复选框和标签位置 */
+#quick-reply-menu-color-match-checkbox {
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* 调整复选框容器样式 */
+.quick-reply-settings-row:has(#quick-reply-menu-color-match-checkbox) {
+    display: flex;
+    align-items: center;
+}
+
+.quick-reply-settings-row:has(#quick-reply-menu-color-match-checkbox) label {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin: 0;
+}
+
+/* 调整按钮容器位置 */
+.quick-reply-settings-row:has(#quick-reply-menu-menu-style-button) {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+}
+
+.custom-icon-container {
+    display: flex;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.custom-icon-container input {
+    flex-grow: 1;
 }
 
 /* 菜单布局 */
@@ -53,7 +121,7 @@
 /* 左右容器共有样式 */
 .quick-reply-list {
     width: 48%;
-    border: 1px solid #444;
+    border: 1px solid var(--qr-title-border-color, #444);
     border-radius: 5px;
     padding: 8px;
     max-height: 300px;
@@ -64,11 +132,11 @@
 /* 标题样式 */
 .quick-reply-list-title {
     text-align: center;
-    color: #ccc;
+    color: var(--qr-title-color, #ccc);
     font-size: 14px;
     margin-bottom: 8px;
     padding-bottom: 5px;
-    border-bottom: 1px solid #444;
+    border-bottom: 1px solid var(--qr-title-border-color, #444);
     transition: color 0.3s, border-bottom-color 0.3s;
 }
 
@@ -78,8 +146,8 @@
     width: 100%;
     padding: 5px 8px;
     margin: 4px 0;
-    background-color: rgba(60, 60, 60, 0.7);
-    color: white;
+    background-color: var(--qr-item-bg-color, rgba(60, 60, 60, 0.7));
+    color: var(--qr-item-text-color, white);
     text-align: center;
     border-radius: 4px;
     cursor: pointer;
@@ -96,7 +164,7 @@
 
 /* 滚动条样式 */
 .quick-reply-list::-webkit-scrollbar {
-    width: 4.5px;
+    width: 6px;
 }
 
 .quick-reply-list::-webkit-scrollbar-track {
@@ -115,10 +183,238 @@
 
 /* 空列表提示 */
 .quick-reply-empty {
-    color: #666;
+    color: var(--qr-empty-text-color, #666);
     text-align: center;
     padding: 10px;
     font-style: italic;
     font-size: 12px;
     transition: color 0.3s;
+}
+
+/* 自定义图标支持 */
+#quick-reply-rocket-button.custom-icon {
+    background-size: 20px 20px;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* 菜单样式设置面板 */
+.quick-reply-style-group {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #333;
+}
+
+.quick-reply-style-group h4 {
+    margin: 5px 0;
+    font-size: 14px;
+    color: var(--text-color, #ccc);
+}
+
+/* 菜单样式设置面板 - 确保背景不透明 */
+#quick-reply-menu-menu-style-panel {
+    display: none;
+    position: fixed;
+    left: 50%;
+    top: 10%;
+    transform: translateX(-50%);
+    z-index: 1002;
+    border-radius: 10px;
+    padding: 20px;
+    width: 500px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    /* 确保背景不透明 */
+    background-color: var(--background-color1, #0f0f0f);
+    border: 1px solid var(--border-color, #444);
+    color: var(--text-color, #fff);
+}
+
+/* 菜单样式面板标题样式 */
+#quick-reply-menu-menu-style-panel h3 {
+    margin: 0;
+    color: var(--text-color, #fff);
+}
+
+/* 统一菜单样式标题和设置选项文字样式 */
+.quick-reply-style-group h4,
+.quick-reply-settings-row label {
+    color: var(--text-color, #fff);
+}
+
+/* 改进颜色选择器样式 - 去掉边框 */
+.qr-color-picker {
+    width: 40px;
+    height: 25px;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+/* 颜色文本输入框 - 用于移动设备 */
+.qr-color-text-input {
+    width: 70px;
+    height: 25px;
+    padding: 0 5px;
+    border: 1px solid var(--border-color, #444);
+    border-radius: 4px;
+    background: var(--background-color2, #1f1f1f);
+    color: var(--text-color, #fff);
+    font-family: monospace;
+}
+
+/* 颜色选择器容器 */
+.color-picker-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* 滑动条容器 - 防止换行 */
+.slider-container {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    width: 150px;
+}
+
+/* 调整不透明度滑动条 */
+.qr-opacity-slider {
+    flex: 1;
+    min-width: 80px;
+    margin: 0 5px;
+}
+
+/* 不透明度数值 - 防止换行 */
+.opacity-value {
+    min-width: 24px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* 移动设备适配 */
+@media screen and (max-width: 768px) {
+    .quick-reply-settings-row {
+        flex-wrap: wrap;
+    }
+    
+    /* 针对移动设备优化图标类型和预览的布局 */
+    .quick-reply-settings-row:has(#quick-reply-menu-icon-type) {
+        flex-wrap: nowrap;
+    }
+    
+    .quick-reply-settings-row > label {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+    
+    /* 针对移动设备优化自定义图标输入框 */
+    .custom-icon-container > div {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        width: 100%;
+    }
+    
+    .custom-icon-container button {
+        margin-top: 5px;
+        width: 100% !important;
+    }
+    
+    /* 确保滑动条容器不换行 */
+    .slider-container {
+        flex-wrap: nowrap;
+    }
+}
+
+/* 将变量声明添加到:root以确保全局可用 */
+:root {
+    --qr-item-bg-color: rgba(60, 60, 60, 0.7);
+    --qr-item-text-color: white;
+    --qr-title-color: #ccc;
+    --qr-title-border-color: #444;
+    --qr-empty-text-color: #666;
+    --qr-menu-bg-color: rgba(0, 0, 0, 0.85);
+    --qr-menu-border-color: #555;
+}
+
+/* 透明选择框样式 */
+.transparent-select {
+    background-color: transparent !important;
+    border: 1px solid var(--border-color, #444) !important;
+}
+
+/* 修改使用说明面板样式 */
+.qr-usage-panel {
+    display: none;
+    position: fixed;
+    left: 50%;
+    /* 不再使用top百分比和transform垂直居中，而是在JS中动态计算 */
+    z-index: 9999; /* 确保在最上层 */
+    background-color: var(--background-color1, #0f0f0f);
+    border: 1px solid var(--border-color, #444);
+    border-radius: 10px;
+    padding: 15px;
+    width: 500px;
+    max-width: 90vw;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.quick-reply-usage-content {
+    color: var(--text-color, #ccc);
+    line-height: 1.5;
+    margin: 0; /* 去除默认margin */
+}
+
+.quick-reply-usage-content p {
+    margin-top: 0;
+    margin-bottom: 7px; /* 减小段落间距 */
+}
+
+/* 确保最后一个段落没有底部间距 */
+.quick-reply-usage-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* 使用说明标题样式 */
+.qr-usage-panel h3 {
+    color: white !important; /* 强制白色 */
+    font-weight: bold !important; /* 强制加粗 */
+    text-align: center;
+    margin: 0 0 7px 0;
+}
+
+/* 确定按钮样式 */
+.qr-usage-panel .menu_button {
+    min-width: 80px;
+    margin: 0 auto;
+}
+
+.menu_button {
+    width: auto !important; 
+    padding: 0 10px !important;
+    white-space: nowrap;
+}
+
+/* 图标预览弹窗内的图标样式 */
+#quick-reply-icon-preview-display {
+    font-size: 24px;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+}
+
+/* 图标预览弹窗中的文本样式 */
+#quick-reply-icon-preview-display span {
+    font-size: 14px;
+    color: var(--text-color, #ccc);
+    text-align: center;
+    max-width: 120px;
 }
