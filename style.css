@@ -392,7 +392,9 @@ body.qra-disabled #quick-reply-rocket-button {
     margin: 0 auto;
 }
 
-.menu_button {
+/* 将通用的.menu_button选择器改为更具体的选择器 */
+.qr-usage-panel .menu_button,
+#quick-reply-menu-menu-style-panel .menu_button {
     width: auto !important; 
     padding: 0 10px !important;
     white-space: nowrap;
