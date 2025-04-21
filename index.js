@@ -34,15 +34,6 @@ function injectRocketButton() {
     // 获取原始快速回复栏
     const originalQrBar = document.getElementById('qr--bar');
     
-    // 根据插件启用状态切换类名
-    if (originalQrBar) {
-        if (enabled) {
-            originalQrBar.classList.add('qr-bar-hidden');
-        } else {
-            originalQrBar.classList.remove('qr-bar-hidden');
-        }
-    }
-    
     // Find the send button in the UI
     const sendButton = $('#send_but');
     if (sendButton.length === 0) {
