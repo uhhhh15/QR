@@ -74,20 +74,47 @@ function updateIconDisplay() {
     
     // 根据图标类型设置内容
     if (iconType === Constants.ICON_TYPES.CUSTOM && settings.customIconUrl) {
-        // 清除现有内容
-        button.innerHTML = '';
+        const customContent = settings.customIconUrl.trim();
         
-        // 添加i元素，完全模拟FontAwesome的渲染方式
-        const i = document.createElement('i');
-        i.className = 'fa-custom';
-        i.style.backgroundImage = `url('${settings.customIconUrl}')`;
-        button.appendChild(i);
-        
-        // 3. 确保按钮本身有FontAwesome的基本类
-        button.classList.add('fa-solid');  // 这确保了字体大小继承
+        // 使用CSS背景图像显示
+        if (customContent.startsWith('<svg') && customContent.includes('</svg>')) {
+            // SVG代码 - 转换为Data URL
+            const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(customContent);
+            button.style.backgroundImage = `url('${svgDataUrl}')`;
+            button.style.backgroundSize = '20px 20px';
+            button.style.backgroundPosition = 'center';
+            button.style.backgroundRepeat = 'no-repeat';
+        } 
+        else if (customContent.startsWith('data:') || 
+                customContent.startsWith('http') || 
+                customContent.endsWith('.png') || 
+                customContent.endsWith('.jpg') || 
+                customContent.endsWith('.svg') ||
+                customContent.endsWith('.gif')) {
+            // URL或完整的Data URL
+            button.style.backgroundImage = `url('${customContent}')`;
+            button.style.backgroundSize = '20px 20px';
+            button.style.backgroundPosition = 'center';
+            button.style.backgroundRepeat = 'no-repeat';
+        } 
+        else if (customContent.includes('base64,')) {
+            // 不完整的base64，尝试补全
+            let imgUrl = customContent;
+            if (!customContent.startsWith('data:')) {
+                imgUrl = 'data:image/png;base64,' + customContent.split('base64,')[1];
+            }
+            button.style.backgroundImage = `url('${imgUrl}')`;
+            button.style.backgroundSize = '20px 20px';
+            button.style.backgroundPosition = 'center';
+            button.style.backgroundRepeat = 'no-repeat';
+        } else {
+            // 不是可识别的格式，使用文本显示
+            button.textContent = '?';
+            console.warn(`[${Constants.EXTENSION_NAME}] 无法识别的图标格式`);
+        }
     } else {
-        // 使用标准FontAwesome
-        button.innerHTML = '';
+        // 使用FontAwesome图标
+        const iconClass = Constants.ICON_CLASS_MAP[iconType] || Constants.ICON_CLASS_MAP[Constants.ICON_TYPES.ROCKET];
         button.classList.add('fa-solid', iconClass);
     }
     
