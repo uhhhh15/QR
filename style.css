@@ -1,6 +1,6 @@
-/* 新规则：插件启用时，隐藏 #qr--bar 内的原始触发器和按钮容器 */
+/* 新规则：插件启用时，隐藏 #qr--bar 内的原始触发器和【不属于输入助手的】按钮容器 */
 body.qra-enabled #qr--bar > #qr--popoutTrigger,
-body.qra-enabled #qr--bar > .qr--buttons {
+body.qra-enabled #qr--bar > .qr--buttons:not(#input_helper_toolbar) {
     display: none !important;
 }
 
@@ -116,17 +116,6 @@ body.qra-disabled #quick-reply-rocket-button {
     display: flex;
     justify-content: space-between;
     gap: 10px;
-}
-
-
-.fa-custom {
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    background-size: contain;
-    background-position: center;
-    background-repeat: no-repeat;
-    font-size: inherit;
 }
 
 /* 左右容器共有样式 */
