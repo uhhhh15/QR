@@ -1,7 +1,7 @@
-/* 插件启用时隐藏原始快速回复栏 */
-body.qra-enabled #qr--bar {
-    height: 0px !important;
-    overflow: hidden !important;
+/* 新规则：插件启用时，隐藏 #qr--bar 内的原始触发器和按钮容器 */
+body.qra-enabled #qr--bar > #qr--popoutTrigger,
+body.qra-enabled #qr--bar > .qr--buttons {
+    display: none !important;
 }
 
 /* 插件禁用时显示原始快速回复栏 */
@@ -116,6 +116,17 @@ body.qra-disabled #quick-reply-rocket-button {
     display: flex;
     justify-content: space-between;
     gap: 10px;
+}
+
+
+.fa-custom {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    font-size: inherit;
 }
 
 /* 左右容器共有样式 */
