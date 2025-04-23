@@ -17,10 +17,6 @@ export const ID_SETTINGS_CONTAINER = `${EXTENSION_NAME}-settings`;
 export const ID_SETTINGS_ENABLED_DROPDOWN = `${EXTENSION_NAME}-enabled`;
 export const ID_ICON_TYPE_DROPDOWN = `${EXTENSION_NAME}-icon-type`;
 export const ID_CUSTOM_ICON_URL = `${EXTENSION_NAME}-custom-icon-url`;
-// --- 新增ID ---
-export const ID_CUSTOM_ICON_SIZE_INPUT = `${EXTENSION_NAME}-custom-icon-size`;
-export const ID_FA_ICON_CODE_INPUT = `${EXTENSION_NAME}-fa-icon-code`;
-// --- 结束新增 ---
 export const ID_COLOR_MATCH_CHECKBOX = `${EXTENSION_NAME}-color-match`;
 
 // --- 菜单样式相关常量 ---
@@ -52,20 +48,16 @@ export const ICON_TYPES = {
     COMMENT: 'comment',
     STAR: 'star',
     BOLT: 'bolt',
-    FONTAWESOME: 'fontawesome', // <-- 新增 FontAwesome 选项
     CUSTOM: 'custom'
 };
 
 // --- 图标类型到FontAwesome类名的映射 ---
-// 注意：FONTAWESOME 类型不在这里映射，因为它直接使用用户代码
 export const ICON_CLASS_MAP = {
     [ICON_TYPES.ROCKET]: 'fa-rocket',
     [ICON_TYPES.COMMENT]: 'fa-palette',
-    [ICON_TYPES.SPARKLES]: 'fa-sparkles',
     [ICON_TYPES.STAR]: 'fa-star-and-crescent',
     [ICON_TYPES.BOLT]: 'fa-star-of-david',
-    [ICON_TYPES.CUSTOM]: '',  // 自定义图标不使用FontAwesome类
-    [ICON_TYPES.FONTAWESOME]: '' // FontAwesome代码不使用预设类
+    [ICON_TYPES.CUSTOM]: ''  // 自定义图标不使用FontAwesome类
 };
 
 // --- 默认菜单样式值 ---
@@ -78,6 +70,3 @@ export const DEFAULT_MENU_STYLES = {
     menuBgColor: 'rgba(0, 0, 0, 0.85)',
     menuBorderColor: '#555555'
 };
-
-// --- 默认图标大小 ---
-export const DEFAULT_CUSTOM_ICON_SIZE = 20;
