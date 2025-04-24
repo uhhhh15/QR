@@ -208,8 +208,8 @@ export function createSettingsHtml() {
         <div class="quick-reply-usage-content">
             <p><strong>该插件主要提供以下基本功能：</strong></p>
             <ul>
-                <li>通过点击发送按钮旁边的小图标，快速打开或关闭快速回复菜单。</li>
-                <li>支持两种快速回复类型：“聊天快速回复”（针对当前聊天）和“全局快速回复”（适用于所有聊天），方便分类管理。此外，通过前端助手安装的QR会被分配到聊天快速回复中。</li>
+                <li>通过点击发送按钮旁边的小图标，快速打开或关闭快捷回复菜单。</li>
+                <li>支持两种快捷回复类型："聊天快捷回复"（针对当前聊天）和"全局快捷回复"（适用于所有聊天），方便分类管理。</li>
             </ul>
 
             <p><strong>以下是关于插件的详细设置</strong></p>
@@ -221,7 +221,7 @@ export function createSettingsHtml() {
                     <ul>
                         <li>小火箭（默认）</li>
                         <li>调色盘</li>
-                        <li>星月</li>
+                        <li>星闪</li>
                         <li>五芒星</li>
                         <li>Font Awesome（使用HTML代码复制）</li> 
                         <li>自定义图标（URL/SVG/上传，图片形状可自行裁剪）</li> 
@@ -231,23 +231,23 @@ export function createSettingsHtml() {
 
             <p><strong>其次，在图标设置部分：</strong></p>
             <ul>
-                <li>若选择“自定义图标”：
+                <li>若选择"自定义图标"：
                     <ul>
                         <li>可以通过输入图标的URL、base64编码或SVG代码来设置。</li>
-                        <li>也可以点击“选择文件”上传本地图片。</li>
+                        <li>也可以点击"选择文件"上传本地图片。</li>
                         <li>旁边有一个数字输入框，可以调整图标在按钮上显示的大小（单位：像素）。</li>
                     </ul>
                 </li>
-                <li>若选择“Font Awesome”：
+                <li>若选择"Font Awesome"：
                     <ul>
                         <li>需要在一个文本框中输入完整的 Font Awesome 图标 HTML 代码（fontawesome.com），例如 <code><i class="fa-solid fa-camera"></i></code>。</li>
                         <li>图标的大小和颜色将尽量匹配按钮的样式。</li>
                     </ul>
                 </li>
-                <li>可以勾选"使用与发送按钮相匹配的颜色风格"，让图标颜色自动适配发送按钮的类别。</li>
+                <li>可以勾选"使用与发送按钮相匹配的颜色风格"，让图标颜色自动适配发送按钮的类别（主按钮/次按钮）。</li>
             </ul>
 
-<p><strong>然后，你可以通过点击"菜单样式"按钮，来自定义快速回复菜单的外观：</strong></p>
+<p><strong>然后，你可以通过点击"菜单样式"按钮，来自定义快捷回复菜单的外观：</strong></p>
             <ul>
                 <li><strong>菜单项样式：</strong>
                     <ul>
@@ -263,7 +263,7 @@ export function createSettingsHtml() {
                 </li>
                 <li><strong>其他样式设置：</strong>
                     <ul>
-                        <li>设置无快速回复项时提示文字的颜色。</li>
+                        <li>设置无快捷回复项时提示文字的颜色。</li>
                         <li>设置整个菜单面板的背景颜色、透明度和边框颜色。</li>
                     </ul>
                 </li>
@@ -277,14 +277,14 @@ export function createSettingsHtml() {
         
             <p><strong>这里有一些使用这款插件的小技巧：</strong></p>
             <ul>
-                <li>点击QR助手菜单外部的任意区域可以直接关闭菜单。</li>
+                <li>点击菜单外部的任意区域可以关闭菜单。</li>
                 <li>你可以通过更改图标类型和颜色，使其更好地匹配你的界面主题。</li>
-                <li>常见图标/图片格式可以直接上传，或者先通过软件裁编辑成其他形状或颜色满足个人喜欢再上传。</li>
+                <li>对于经常在各种聊天中使用的回复，建议添加到"全局快速回复"中。</li>
+                <li>对于只在特定聊天场景下使用的回复，则更适合添加到"聊天快速回复"中。</li>
             </ul>
 
             <p><strong>最后是关于数据保存：</strong></p>
-            <p>完成所有配置（包括图标和样式设置）后，记得点击“保存设置”按钮来手动保存，以确保你的设置不会丢失。Font Awesome（酒馆就是用的这家的免费图标） 图标可以在官网 (fontawesome.com) 查找。</p>
-            <p>如果有任何BUG或疑问以及建议欢迎反馈☺</p>
+            <p>完成所有配置（包括图标和样式设置）后，记得点击"保存设置"按钮来手动保存，以确保你的设置不会丢失。Font Awesome 图标可以在官网 (fontawesome.com) 查找。</p>
         </div>
 
         <div style="text-align:center; margin-top:10px;">
@@ -317,7 +317,6 @@ export function createSettingsHtml() {
                     <select id="${Constants.ID_ICON_TYPE_DROPDOWN}" class="text_pole transparent-select" style="width:120px;">
                         <option value="${Constants.ICON_TYPES.ROCKET}">小火箭</option>
                         <option value="${Constants.ICON_TYPES.COMMENT}">调色盘</option>
-                        <option value="${Constants.ICON_TYPES.STAR}">星月</option>
                         <option value="${Constants.ICON_TYPES.BOLT}">五芒星</option>
                         <option value="${Constants.ICON_TYPES.FONTAWESOME}">Font Awesome</option> 
                         <option value="${Constants.ICON_TYPES.CUSTOM}">自定义图标</option>
@@ -441,7 +440,7 @@ export function handleSettingsChange(event) {
         if (inputValue.length > 1000) {
             // 大型数据 - 存储在dataset中并显示占位符
             event.target.dataset.fullValue = inputValue;
-            event.target.value = "图片数据已保存！";
+            event.target.value = "[图片数据已保存，但不在输入框显示以提高性能]";
         } else {
             // 正常大小数据 - 直接存储
             delete event.target.dataset.fullValue;
@@ -560,6 +559,10 @@ export function setupSettingsEventListeners() {
                 if (success) {
                     saveStatus.textContent = '✓ 设置已保存';
                     saveStatus.style.color = '#4caf50';
+                } else {
+                    saveStatus.textContent = '✗ 保存失败';
+                    saveStatus.style.color = '#f44336';
+                }
                 setTimeout(() => { saveStatus.textContent = ''; }, 2000);
             }
 
