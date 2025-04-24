@@ -2,58 +2,38 @@
 import * as Constants from './constants.js';
 import { fetchQuickReplies } from './api.js';
 import { sharedState } from './state.js';
-// 导入 extension_settings 以便在 updateIconDisplay 中使用
-import { extension_settings } from "./index.js";
+// No longer need extension_settings here directly
 
-// 注意：这个函数现在主要由 index.js 或 settings.js 中的同名函数处理
-// 保留在这里可能导致混淆，建议只在一个地方维护
-// 如果其他地方确实需要调用 ui.js 的版本，可以保留，否则可以考虑移除
-/*
-export function updateButtonIconDisplay() {
-    const button = sharedState.domElements.rocketButton;
-    if (!button) return;
-
-    const settings = extension_settings[Constants.EXTENSION_NAME];
-    const iconType = settings.iconType || Constants.ICON_TYPES.ROCKET;
-    // ... (实际的图标更新逻辑) ...
-    // 建议调用 index.js 或 settings.js 中的 updateIconDisplay
-    console.warn("[ui.js] updateButtonIconDisplay called - consider centralizing this logic.");
-}
-*/
+// Removed updateButtonIconDisplay and updateIconDisplay from this file. Use settings.js version.
 
 /**
  * Creates the main quick reply button (legacy, kept for reference).
  * @returns {HTMLElement} The created button element.
  */
 export function createMenuButton() {
-    // This function is kept for reference but no longer used
+    // This function is likely unused but kept for potential reference.
     const button = document.createElement('button');
-    button.id = Constants.ID_BUTTON;
+    button.id = Constants.ID_BUTTON; // Legacy ID
     button.type = 'button';
     button.innerText = '[快速回复]';
     button.setAttribute('aria-haspopup', 'true');
     button.setAttribute('aria-expanded', 'false');
     button.setAttribute('aria-controls', Constants.ID_MENU);
+    console.warn(`[${Constants.EXTENSION_NAME}] Legacy function createMenuButton called.`);
     return button;
 }
 
 /**
- * Creates the main menu element structure.
- * @returns {HTMLElement} The created menu element.
+ * Creates the menu element structure.
+ * @returns {HTMLElement} The created menu element (initially hidden).
  */
 export function createMenuElement() {
     const menu = document.createElement('div');
     menu.id = Constants.ID_MENU;
-    // 确保应用了自定义样式类（如果样式设置中存在）
-    const settings = extension_settings[Constants.EXTENSION_NAME];
-    if (settings.menuStyles && settings.menuStyles.itemBgColor) { // 检查是否有自定义样式
-        menu.className = `${Constants.ID_MENU} custom-styled-menu`;
-    } else {
-         menu.className = Constants.ID_MENU; // 默认类
-    }
+    menu.className = 'custom-styled-menu'; // Add class for custom styling hooks
     menu.setAttribute('role', Constants.ARIA_ROLE_MENU);
-    menu.tabIndex = -1; // Allows the menu to be focused programmatically if needed
-    menu.style.display = 'none'; // Initially hidden
+    menu.tabIndex = -1; // Allows focus programmatically but not via tab initially
+    menu.style.display = 'none'; // Start hidden
 
     const container = document.createElement('div');
     container.className = Constants.CLASS_MENU_CONTAINER;
@@ -66,12 +46,12 @@ export function createMenuElement() {
     chatListContainer.setAttribute('aria-labelledby', `${Constants.ID_CHAT_LIST_CONTAINER}-title`); // ARIA
 
     const chatTitle = document.createElement('div');
-    chatTitle.id = `${Constants.ID_CHAT_LIST_CONTAINER}-title`; // ARIA
+    chatTitle.id = `${Constants.ID_CHAT_LIST_CONTAINER}-title`; // ID for aria-labelledby
     chatTitle.className = Constants.CLASS_LIST_TITLE;
-    chatTitle.textContent = '聊天快速回复';
+    chatTitle.textContent = '聊天快速回复'; // Title includes standard and JS Runner replies now
 
     const chatItems = document.createElement('div');
-    chatItems.id = Constants.ID_CHAT_ITEMS;
+    chatItems.id = Constants.ID_CHAT_ITEMS; // Container for chat items
 
     chatListContainer.appendChild(chatTitle);
     chatListContainer.appendChild(chatItems);
@@ -84,12 +64,12 @@ export function createMenuElement() {
     globalListContainer.setAttribute('aria-labelledby', `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`); // ARIA
 
     const globalTitle = document.createElement('div');
-    globalTitle.id = `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`; // ARIA
+    globalTitle.id = `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`; // ID for aria-labelledby
     globalTitle.className = Constants.CLASS_LIST_TITLE;
     globalTitle.textContent = '全局快速回复';
 
     const globalItems = document.createElement('div');
-    globalItems.id = Constants.ID_GLOBAL_ITEMS;
+    globalItems.id = Constants.ID_GLOBAL_ITEMS; // Container for global items
 
     globalListContainer.appendChild(globalTitle);
     globalListContainer.appendChild(globalItems);
@@ -103,167 +83,91 @@ export function createMenuElement() {
 }
 
 /**
- * Creates a single quick reply item (button) for the menu.
- * Adds necessary data attributes for the click handler.
- * @param {object} reply - The quick reply data (can be standard or JS Runner).
- *                         Should contain `label`, `setName`, `message`, and `isStandard`.
- * @returns {HTMLElement} The button element for the menu.
+ * Creates a single quick reply item (button).
+ * Adds data-is-standard attribute based on reply data.
+ * @param {object} reply - The quick reply data { setName, label, message, isStandard }
+ * @returns {HTMLButtonElement} The button element for the quick reply item.
  */
 export function createQuickReplyItem(reply) {
     const item = document.createElement('button');
-    item.className = Constants.CLASS_ITEM; // Basic class for styling
+    item.type = 'button'; // Explicitly set type
+    item.className = Constants.CLASS_ITEM;
     item.setAttribute('role', Constants.ARIA_ROLE_MENUITEM);
-    item.type = 'button'; // Explicitly set type for button element
+    item.dataset.setName = reply.setName; // Store data needed for trigger
+    item.dataset.label = reply.label;
 
-    // --- Crucial Data Attributes ---
-    item.dataset.setName = reply.setName; // e.g., 'MyPreset' or 'JS脚本按钮'
-    item.dataset.label = reply.label;     // The text displayed and used for identification
-    // Convert boolean to string for dataset attribute
-    item.dataset.isStandard = String(reply.isStandard); // 'true' or 'false'
-    // This dataset type is used by the event delegate in events.js
-    item.dataset.type = 'quick-reply-item';
+    // ***************************************************************
+    // --- 新增：添加 isStandard 数据属性，用于区分点击行为 ---
+    // dataset 属性值必须是字符串，所以显式转换布尔值
+    // 如果 reply.isStandard 是 false，则设置为 'false'；否则（包括 true 和 undefined），设置为 'true'
+    item.dataset.isStandard = String(reply.isStandard === false ? false : true);
+    // ***************************************************************
 
-    // --- Tooltip (Title Attribute) ---
-    if (reply.isStandard) {
-        // For standard replies, show the message/command (truncated if long)
-        const messageContent = reply.message || '(无消息内容)';
-        item.title = messageContent.length > 100
-            ? messageContent.slice(0, 97) + '...'
-            : messageContent;
-    } else {
-        // For JS Runner buttons, provide a specific hint
-        item.title = `点击以触发原始 '${reply.label}' 脚本按钮`;
-    }
+    // Tooltip showing full message or first 50 chars
+    // Use reply.message directly, api.js provides a default if needed
+    const tooltipMessage = reply.message || '(点击执行)'; // Fallback tooltip message if none provided
+    item.title = tooltipMessage.length > 50
+        ? `${reply.setName} > ${reply.label}:\n${tooltipMessage.slice(0, 50)}...`
+        : `${reply.setName} > ${reply.label}:\n${tooltipMessage}`;
+    item.textContent = reply.label; // Display label as button text
 
-    // --- Button Text ---
-    item.textContent = reply.label;
-
-    // --- No Visual Distinction Added Here ---
-    // We are intentionally *not* adding a specific class like 'jsrunner-qr-item'
+    // Event listener will be added in renderQuickReplies where this is used
+    // item.dataset.type = 'quick-reply-item'; // Could be used for event delegation if needed
 
     return item;
 }
 
 /**
- * Updates the rocket button icon display based on settings.
- * This function might be better placed in index.js or settings.js to avoid potential import issues.
- * However, keeping a version here if ui.js needs to trigger it independently.
- */
-export function updateIconDisplay() {
-    const button = sharedState.domElements.rocketButton;
-    if (!button) return;
-
-    const settings = extension_settings[Constants.EXTENSION_NAME];
-    // Ensure settings and defaults are properly handled
-    const iconType = settings.iconType || Constants.ICON_TYPES.ROCKET;
-    const matchColors = settings.matchButtonColors !== false; // Default true
-
-    // Clear previous content and styles
-    button.innerHTML = '';
-    // Reset classes, keep interactable and secondary-button as base
-    button.className = 'interactable secondary-button';
-    // Reset background image styles
-    button.style.backgroundImage = '';
-    button.style.backgroundSize = '';
-    button.style.backgroundPosition = '';
-    button.style.backgroundRepeat = '';
-    // Reset color explicitly
-    button.style.color = ''; // Let CSS handle default color
-
-    // Apply icon based on type
-    if (iconType === Constants.ICON_TYPES.CUSTOM && settings.customIconUrl) {
-        const customContent = settings.customIconUrl.trim();
-        // Logic to handle SVG, Data URL, or regular URL as background-image
-        // (Using the robust logic from index.js/settings.js is recommended)
-        if (customContent.startsWith('<svg') && customContent.includes('</svg>')) {
-            const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(customContent);
-            button.style.backgroundImage = `url('${svgDataUrl}')`;
-        } else if (customContent.startsWith('data:') || customContent.startsWith('http') || customContent.includes('.')) { // Simple URL check
-             button.style.backgroundImage = `url('${customContent}')`;
-        } else if (customContent.includes('base64,')) { // Attempt to fix incomplete base64
-             let imgUrl = customContent;
-             if (!customContent.startsWith('data:')) {
-                 imgUrl = 'data:image/png;base64,' + customContent.split('base64,')[1];
-             }
-             button.style.backgroundImage = `url('${imgUrl}')`;
-        } else {
-             button.textContent = '?'; // Fallback for unrecognizable format
-             console.warn(`[${Constants.EXTENSION_NAME}] Unrecognized custom icon format in updateIconDisplay.`);
-        }
-        // Apply common background styles if an image was set
-        if(button.style.backgroundImage){
-            button.style.backgroundSize = '20px 20px';
-            button.style.backgroundPosition = 'center';
-            button.style.backgroundRepeat = 'no-repeat';
-        }
-
-    } else {
-        // Apply FontAwesome icon
-        const iconClass = Constants.ICON_CLASS_MAP[iconType] || Constants.ICON_CLASS_MAP[Constants.ICON_TYPES.ROCKET];
-        button.classList.add('fa-solid', iconClass);
-    }
-
-    // Apply color matching if enabled
-    if (matchColors) {
-        const sendButton = document.getElementById('send_but');
-        if (sendButton) {
-            const sendButtonStyle = getComputedStyle(sendButton);
-            button.style.color = sendButtonStyle.color;
-            // Match primary/secondary style
-            if (sendButton.classList.contains('primary-button')) {
-                button.classList.remove('secondary-button');
-                button.classList.add('primary-button');
-            } else {
-                 button.classList.remove('primary-button'); // Ensure it's not primary if send isn't
-                 button.classList.add('secondary-button');
-            }
-        }
-    }
-}
-
-/**
- * Renders quick replies (both standard and JS Runner) into the menu containers.
- * @param {Array<object>} chatReplies - Chat-specific quick replies (includes JS Runner buttons).
- * @param {Array<object>} globalReplies - Global quick replies (standard only).
+ * Renders fetched quick replies into the respective menu containers.
+ * Also attaches click listeners to the newly created items.
+ * @param {Array<object>} chatReplies - Chat-specific quick replies (includes standard and JS runner)
+ * @param {Array<object>} globalReplies - Global quick replies (standard only)
  */
 export function renderQuickReplies(chatReplies, globalReplies) {
     const { chatItemsContainer, globalItemsContainer } = sharedState.domElements;
     if (!chatItemsContainer || !globalItemsContainer) {
-        console.error(`[${Constants.EXTENSION_NAME}] Menu item containers not found.`);
-        return;
-    }
+         console.error(`[${Constants.EXTENSION_NAME}] Menu item containers not found for rendering.`);
+         return;
+     }
 
-    // Clear existing content
+    // Clear previous content safely
     chatItemsContainer.innerHTML = '';
     globalItemsContainer.innerHTML = '';
 
-    // Render chat replies (including JS Runner)
-    if (chatReplies && chatReplies.length > 0) {
-        chatReplies.forEach(reply => {
-            // createQuickReplyItem handles both types now
-            chatItemsContainer.appendChild(createQuickReplyItem(reply));
+    // Helper function to create and append item with listener
+    const addItem = (container, reply) => {
+        const item = createQuickReplyItem(reply); // createQuickReplyItem now adds data-is-standard
+        // Attach the single click handler from events.js (exposed via window.quickReplyMenu)
+        item.addEventListener('click', function(event) {
+            if (window.quickReplyMenu && window.quickReplyMenu.handleQuickReplyClick) {
+                // The handler in events.js will read data-is-standard and decide the action
+                window.quickReplyMenu.handleQuickReplyClick(event);
+            } else {
+                console.error(`[${Constants.EXTENSION_NAME}] handleQuickReplyClick not found on window.quickReplyMenu`);
+            }
         });
+        container.appendChild(item);
+    };
+
+    // Render chat replies or placeholder (includes standard and JS Runner items)
+    if (chatReplies && chatReplies.length > 0) {
+        chatReplies.forEach(reply => addItem(chatItemsContainer, reply));
     } else {
-        chatItemsContainer.appendChild(createEmptyPlaceholder('没有可用的聊天快速回复'));
+        chatItemsContainer.appendChild(createEmptyPlaceholder('没有可用的聊天快速回复或脚本'));
     }
 
-    // Render global replies (standard only)
+    // Render global replies or placeholder (standard only)
     if (globalReplies && globalReplies.length > 0) {
-        globalReplies.forEach(reply => {
-            globalItemsContainer.appendChild(createQuickReplyItem(reply));
-        });
+        globalReplies.forEach(reply => addItem(globalItemsContainer, reply));
     } else {
         globalItemsContainer.appendChild(createEmptyPlaceholder('没有可用的全局快速回复'));
     }
-
-    // NOTE: Event listeners are now handled by delegation in setupEventListeners (events.js)
-    // No need to add individual listeners here.
 }
 
 /**
- * Creates an empty placeholder element for when a list is empty.
- * @param {string} message - The message to display.
- * @returns {HTMLElement} The empty placeholder element.
+ * Creates an empty placeholder element (e.g., when a list is empty).
+ * @param {string} message - The message to display in the placeholder.
+ * @returns {HTMLDivElement} The placeholder div element.
  */
 export function createEmptyPlaceholder(message) {
     const empty = document.createElement('div');
@@ -273,47 +177,52 @@ export function createEmptyPlaceholder(message) {
 }
 
 /**
- * Updates the visibility of the menu UI and related ARIA attributes based on sharedState.
- * Fetches and renders replies when showing the menu.
+ * Updates the visibility of the menu UI and related ARIA attributes.
+ * Fetches and renders content if the menu is being shown.
  */
 export function updateMenuVisibilityUI() {
     const { menu, rocketButton } = sharedState.domElements;
     const show = sharedState.menuVisible;
 
     if (!menu || !rocketButton) {
-        console.error(`[${Constants.EXTENSION_NAME}] Menu or Rocket Button not found in DOM elements state.`);
-        return;
-    }
+         console.error(`[${Constants.EXTENSION_NAME}] Menu or rocket button DOM element not found for visibility update.`);
+         return;
+     }
 
     if (show) {
-        // --- Show Menu ---
-        // Fetch fresh data JUST before showing
+        // Update content *before* showing
+        console.log(`[${Constants.EXTENSION_NAME}] Opening menu, fetching replies (including JS Runner)...`);
         try {
-            const { chat, global } = fetchQuickReplies();
-            renderQuickReplies(chat, global);
+            const { chat, global } = fetchQuickReplies(); // From api.js (now includes JS runner in chat)
+             if (chat === undefined || global === undefined) {
+                 throw new Error("fetchQuickReplies did not return expected structure.");
+             }
+            renderQuickReplies(chat, global); // From this file (will render both types)
         } catch (error) {
-             console.error(`[${Constants.EXTENSION_NAME}] Error fetching/rendering replies:`, error);
-             // Optionally show an error message in the menu
-             const errorPlaceholder = createEmptyPlaceholder('加载快速回复失败！');
-             const chatContainer = menu.querySelector(`#${Constants.ID_CHAT_ITEMS}`);
-             const globalContainer = menu.querySelector(`#${Constants.ID_GLOBAL_ITEMS}`);
-             if(chatContainer) chatContainer.innerHTML = ''; chatContainer.appendChild(errorPlaceholder);
-             if(globalContainer) globalContainer.innerHTML = ''; // Clear global too
+             console.error(`[${Constants.EXTENSION_NAME}] Error fetching or rendering replies:`, error);
+             // Display an error message within the menu containers
+             const errorMsg = "加载回复列表失败";
+             if (sharedState.domElements.chatItemsContainer) {
+                 sharedState.domElements.chatItemsContainer.innerHTML = ''; // Clear first
+                 sharedState.domElements.chatItemsContainer.appendChild(createEmptyPlaceholder(errorMsg));
+             }
+              if (sharedState.domElements.globalItemsContainer) {
+                  sharedState.domElements.globalItemsContainer.innerHTML = ''; // Clear first
+                  sharedState.domElements.globalItemsContainer.appendChild(createEmptyPlaceholder(errorMsg));
+              }
         }
 
-
+        // Show the menu and update ARIA/classes
         menu.style.display = 'block';
         rocketButton.setAttribute('aria-expanded', 'true');
-        rocketButton.classList.add('active'); // Visual feedback for active button
+        rocketButton.classList.add('active'); // For visual feedback
 
-        // Optional: Focus management for accessibility
-        // setTimeout(() => { // Delay focus slightly to ensure menu is fully visible
-        //     const firstItem = menu.querySelector(`.${Constants.CLASS_ITEM}`);
-        //     firstItem?.focus();
-        // }, 100);
+        // Optional: Focus management (consider accessibility implications)
+        // const firstItem = menu.querySelector(`.${Constants.CLASS_ITEM}`);
+        // firstItem?.focus();
 
     } else {
-        // --- Hide Menu ---
+        // Hide the menu and update ARIA/classes
         menu.style.display = 'none';
         rocketButton.setAttribute('aria-expanded', 'false');
         rocketButton.classList.remove('active');
