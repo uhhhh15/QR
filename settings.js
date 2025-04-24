@@ -221,7 +221,7 @@ export function createSettingsHtml() {
                     <ul>
                         <li>小火箭（默认）</li>
                         <li>调色盘</li>
-                        <li>星闪</li>
+                        <li>星月</li>
                         <li>五芒星</li>
                         <li>Font Awesome（使用HTML代码复制）</li> 
                         <li>自定义图标（URL/SVG/上传，图片形状可自行裁剪）</li> 
@@ -317,6 +317,7 @@ export function createSettingsHtml() {
                     <select id="${Constants.ID_ICON_TYPE_DROPDOWN}" class="text_pole transparent-select" style="width:120px;">
                         <option value="${Constants.ICON_TYPES.ROCKET}">小火箭</option>
                         <option value="${Constants.ICON_TYPES.COMMENT}">调色盘</option>
+                        <option value="${Constants.ICON_TYPES.STAR}">星月</option>
                         <option value="${Constants.ICON_TYPES.BOLT}">五芒星</option>
                         <option value="${Constants.ICON_TYPES.FONTAWESOME}">Font Awesome</option> 
                         <option value="${Constants.ICON_TYPES.CUSTOM}">自定义图标</option>
