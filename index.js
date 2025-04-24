@@ -1,317 +1,230 @@
-// index.js - Main Entry Point
+// ui.js
 import * as Constants from './constants.js';
+import { fetchQuickReplies } from './api.js';
 import { sharedState } from './state.js';
-import { createMenuElement } from './ui.js';
-// 从 settings.js 导入核心功能
-import { createSettingsHtml, loadAndApplySettings as loadAndApplySettingsToPanel, updateIconDisplay } from './settings.js';
-import { setupEventListeners, handleQuickReplyClick, updateMenuStylesUI } from './events.js';
+// No longer need extension_settings here directly
 
-// 创建本地设置对象，如果全局对象不存在
-if (typeof window.extension_settings === 'undefined') {
-    window.extension_settings = {};
+// Removed updateButtonIconDisplay and updateIconDisplay from this file. Use settings.js version.
+
+/**
+ * Creates the main quick reply button (legacy, kept for reference).
+ * @returns {HTMLElement} The created button element.
+ */
+export function createMenuButton() {
+    // This function is likely unused but kept for potential reference.
+    const button = document.createElement('button');
+    button.id = Constants.ID_BUTTON; // Legacy ID
+    button.type = 'button';
+    button.innerText = '[快速回复]';
+    button.setAttribute('aria-haspopup', 'true');
+    button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-controls', Constants.ID_MENU);
+    console.warn(`[${Constants.EXTENSION_NAME}] Legacy function createMenuButton called.`);
+    return button;
 }
-// 初始化当前扩展的设置，包含新增字段的默认值
-if (!window.extension_settings[Constants.EXTENSION_NAME]) {
-    window.extension_settings[Constants.EXTENSION_NAME] = {
-        enabled: true,
-        iconType: Constants.ICON_TYPES.ROCKET,
-        customIconUrl: '',
-        customIconSize: Constants.DEFAULT_CUSTOM_ICON_SIZE, 
-        faIconCode: '',                                  
-        matchButtonColors: true,
-        menuStyles: JSON.parse(JSON.stringify(Constants.DEFAULT_MENU_STYLES))
+
+/**
+ * Creates the menu element structure.
+ * @returns {HTMLElement} The created menu element (initially hidden).
+ */
+export function createMenuElement() {
+    const menu = document.createElement('div');
+    menu.id = Constants.ID_MENU;
+    menu.className = 'custom-styled-menu'; // Add class for custom styling hooks
+    menu.setAttribute('role', Constants.ARIA_ROLE_MENU);
+    menu.tabIndex = -1; // Allows focus programmatically but not via tab initially
+    menu.style.display = 'none'; // Start hidden
+
+    const container = document.createElement('div');
+    container.className = Constants.CLASS_MENU_CONTAINER;
+
+    // Chat quick replies section
+    const chatListContainer = document.createElement('div');
+    chatListContainer.id = Constants.ID_CHAT_LIST_CONTAINER;
+    chatListContainer.className = Constants.CLASS_LIST;
+    chatListContainer.setAttribute('role', Constants.ARIA_ROLE_GROUP);
+    chatListContainer.setAttribute('aria-labelledby', `${Constants.ID_CHAT_LIST_CONTAINER}-title`); // ARIA
+
+    const chatTitle = document.createElement('div');
+    chatTitle.id = `${Constants.ID_CHAT_LIST_CONTAINER}-title`; // ID for aria-labelledby
+    chatTitle.className = Constants.CLASS_LIST_TITLE;
+    chatTitle.textContent = '聊天快速回复'; // Title includes standard and JS Runner replies now
+
+    const chatItems = document.createElement('div');
+    chatItems.id = Constants.ID_CHAT_ITEMS; // Container for chat items
+
+    chatListContainer.appendChild(chatTitle);
+    chatListContainer.appendChild(chatItems);
+
+    // Global quick replies section
+    const globalListContainer = document.createElement('div');
+    globalListContainer.id = Constants.ID_GLOBAL_LIST_CONTAINER;
+    globalListContainer.className = Constants.CLASS_LIST;
+    globalListContainer.setAttribute('role', Constants.ARIA_ROLE_GROUP);
+    globalListContainer.setAttribute('aria-labelledby', `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`); // ARIA
+
+    const globalTitle = document.createElement('div');
+    globalTitle.id = `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`; // ID for aria-labelledby
+    globalTitle.className = Constants.CLASS_LIST_TITLE;
+    globalTitle.textContent = '全局快速回复';
+
+    const globalItems = document.createElement('div');
+    globalItems.id = Constants.ID_GLOBAL_ITEMS; // Container for global items
+
+    globalListContainer.appendChild(globalTitle);
+    globalListContainer.appendChild(globalItems);
+
+    // Append sections to container
+    container.appendChild(chatListContainer);
+    container.appendChild(globalListContainer);
+    menu.appendChild(container);
+
+    return menu;
+}
+
+/**
+ * Creates a single quick reply item (button).
+ * Adds data-is-standard attribute based on reply data.
+ * @param {object} reply - The quick reply data { setName, label, message, isStandard }
+ * @returns {HTMLButtonElement} The button element for the quick reply item.
+ */
+export function createQuickReplyItem(reply) {
+    const item = document.createElement('button');
+    item.type = 'button'; // Explicitly set type
+    item.className = Constants.CLASS_ITEM;
+    item.setAttribute('role', Constants.ARIA_ROLE_MENUITEM);
+    item.dataset.setName = reply.setName; // Store data needed for trigger
+    item.dataset.label = reply.label;
+
+    // ***************************************************************
+    // --- 新增：添加 isStandard 数据属性，用于区分点击行为 ---
+    // dataset 属性值必须是字符串，所以显式转换布尔值
+    // 如果 reply.isStandard 是 false，则设置为 'false'；否则（包括 true 和 undefined），设置为 'true'
+    item.dataset.isStandard = String(reply.isStandard === false ? false : true);
+    // ***************************************************************
+
+    // Tooltip showing full message or first 50 chars
+    // Use reply.message directly, api.js provides a default if needed
+    const tooltipMessage = reply.message || '(点击执行)'; // Fallback tooltip message if none provided
+    item.title = tooltipMessage.length > 50
+        ? `${reply.setName} > ${reply.label}:\n${tooltipMessage.slice(0, 50)}...`
+        : `${reply.setName} > ${reply.label}:\n${tooltipMessage}`;
+    item.textContent = reply.label; // Display label as button text
+
+    // Event listener will be added in renderQuickReplies where this is used
+    // item.dataset.type = 'quick-reply-item'; // Could be used for event delegation if needed
+
+    return item;
+}
+
+/**
+ * Renders fetched quick replies into the respective menu containers.
+ * Also attaches click listeners to the newly created items.
+ * @param {Array<object>} chatReplies - Chat-specific quick replies (includes standard and JS runner)
+ * @param {Array<object>} globalReplies - Global quick replies (standard only)
+ */
+export function renderQuickReplies(chatReplies, globalReplies) {
+    const { chatItemsContainer, globalItemsContainer } = sharedState.domElements;
+    if (!chatItemsContainer || !globalItemsContainer) {
+         console.error(`[${Constants.EXTENSION_NAME}] Menu item containers not found for rendering.`);
+         return;
+     }
+
+    // Clear previous content safely
+    chatItemsContainer.innerHTML = '';
+    globalItemsContainer.innerHTML = '';
+
+    // Helper function to create and append item with listener
+    const addItem = (container, reply) => {
+        const item = createQuickReplyItem(reply); // createQuickReplyItem now adds data-is-standard
+        // Attach the single click handler from events.js (exposed via window.quickReplyMenu)
+        item.addEventListener('click', function(event) {
+            if (window.quickReplyMenu && window.quickReplyMenu.handleQuickReplyClick) {
+                // The handler in events.js will read data-is-standard and decide the action
+                window.quickReplyMenu.handleQuickReplyClick(event);
+            } else {
+                console.error(`[${Constants.EXTENSION_NAME}] handleQuickReplyClick not found on window.quickReplyMenu`);
+            }
+        });
+        container.appendChild(item);
     };
-}
 
-// 导出设置对象以便其他模块使用
-export const extension_settings = window.extension_settings;
-
-/**
- * Injects the rocket button next to the send button
- */
-function injectRocketButton() {
-    const sendButton = document.getElementById('send_but'); // 使用原生 JS 获取
-    if (!sendButton) {
-        console.error(`[${Constants.EXTENSION_NAME}] Could not find send button (#send_but)`);
-        return null; // Return null if send button isn't found
-    }
-
-    // 检查按钮是否已存在
-    let rocketButton = document.getElementById(Constants.ID_ROCKET_BUTTON);
-    if (rocketButton) {
-        console.log(`[${Constants.EXTENSION_NAME}] Rocket button already exists.`);
-        return rocketButton;
-    }
-
-    // 创建按钮元素
-    rocketButton = document.createElement('div');
-    rocketButton.id = Constants.ID_ROCKET_BUTTON;
-    // 初始类名在 updateIconDisplay 中设置
-    // rocketButton.className = 'interactable secondary-button'; // Initial classes set by updateIconDisplay
-    rocketButton.title = "快速回复菜单";
-    rocketButton.setAttribute('aria-haspopup', 'true');
-    rocketButton.setAttribute('aria-expanded', 'false');
-    rocketButton.setAttribute('aria-controls', Constants.ID_MENU);
-
-    // Insert the button before the send button
-    sendButton.parentNode.insertBefore(rocketButton, sendButton);
-
-    console.log(`[${Constants.EXTENSION_NAME}] Rocket button injected.`);
-    return rocketButton; // Return the reference
-}
-
-/**
- * 图标预览功能已禁用以改善性能
- * 这是一个空操作，不进行任何DOM操作
- */
-function updateIconPreview(iconType) {
-    // 不执行任何DOM操作
-    return;
-}
-
-/**
- * Initializes the plugin: creates UI, sets up listeners, loads settings.
- */
-function initializePlugin() {
-    try {
-        console.log(`[${Constants.EXTENSION_NAME}] Initializing...`);
-
-        // Create and inject the rocket button
-        const rocketButton = injectRocketButton();
-        if (!rocketButton) {
-             console.error(`[${Constants.EXTENSION_NAME}] Initialization failed: Rocket button could not be injected.`);
-             return; // Stop initialization if button injection fails
-        }
-
-        // Create menu element
-        const menu = createMenuElement();
-
-        // Store references in shared state
-        sharedState.domElements.rocketButton = rocketButton;
-        sharedState.domElements.menu = menu;
-        sharedState.domElements.chatItemsContainer = menu.querySelector(`#${Constants.ID_CHAT_ITEMS}`);
-        sharedState.domElements.globalItemsContainer = menu.querySelector(`#${Constants.ID_GLOBAL_ITEMS}`);
-        // 获取设置面板中的元素引用 (在 settings.js 中加载后才能获取)
-        // 这些将在 loadAndApplySettings 或 setupEventListeners 中获取并使用
-        // sharedState.domElements.settingsDropdown = document.getElementById(Constants.ID_SETTINGS_ENABLED_DROPDOWN);
-        // sharedState.domElements.iconTypeDropdown = document.getElementById(Constants.ID_ICON_TYPE_DROPDOWN);
-        // ... 其他设置元素 ...
-         sharedState.domElements.customIconUrl = document.getElementById(Constants.ID_CUSTOM_ICON_URL);
-         sharedState.domElements.customIconSizeInput = document.getElementById(Constants.ID_CUSTOM_ICON_SIZE_INPUT); // <-- 新增
-         sharedState.domElements.faIconCodeInput = document.getElementById(Constants.ID_FA_ICON_CODE_INPUT);       // <-- 新增
-         sharedState.domElements.colorMatchCheckbox = document.getElementById(Constants.ID_COLOR_MATCH_CHECKBOX);
-
-
-        // 创建全局对象暴露事件处理函数和保存函数
-        window.quickReplyMenu = {
-            handleQuickReplyClick,
-            saveSettings: function() {
-                console.log(`[${Constants.EXTENSION_NAME}] Attempting to save settings via window.quickReplyMenu.saveSettings...`);
-                // 从DOM元素获取最新值
-                const settings = extension_settings[Constants.EXTENSION_NAME];
-                const enabledDropdown = document.getElementById(Constants.ID_SETTINGS_ENABLED_DROPDOWN);
-                const iconTypeDropdown = document.getElementById(Constants.ID_ICON_TYPE_DROPDOWN);
-                const customIconUrl = document.getElementById(Constants.ID_CUSTOM_ICON_URL);
-                const customIconSizeInput = document.getElementById(Constants.ID_CUSTOM_ICON_SIZE_INPUT); // <-- 新增
-                const faIconCodeInput = document.getElementById(Constants.ID_FA_ICON_CODE_INPUT);       // <-- 新增
-                const colorMatchCheckbox = document.getElementById(Constants.ID_COLOR_MATCH_CHECKBOX);
-
-                if (enabledDropdown) settings.enabled = enabledDropdown.value === 'true';
-                if (iconTypeDropdown) settings.iconType = iconTypeDropdown.value;
-                if (customIconUrl) settings.customIconUrl = customIconUrl.value;
-                if (customIconSizeInput) settings.customIconSize = parseInt(customIconSizeInput.value, 10) || Constants.DEFAULT_CUSTOM_ICON_SIZE; // <-- 新增
-                if (faIconCodeInput) settings.faIconCode = faIconCodeInput.value;                         // <-- 新增
-                if (colorMatchCheckbox) settings.matchButtonColors = colorMatchCheckbox.checked;
-
-                // 更新图标显示以反映最新设置
-                updateIconDisplay();
-
-                // 更新图标预览 (可选，如果设置面板可见)
-                if (document.getElementById(Constants.ID_SETTINGS_CONTAINER)?.offsetParent !== null) {
-                     updateIconPreview(settings.iconType);
-                }
-
-                // 更新菜单样式 (如果样式被修改过)
-                if (typeof updateMenuStylesUI === 'function' && settings.menuStyles) {
-                    // 检查样式是否真的改变了，避免不必要的更新
-                    // let stylesChanged = checkIfStylesChanged(); // (需要实现比较逻辑)
-                    // if (stylesChanged) updateMenuStylesUI();
-                    updateMenuStylesUI(); // 简单起见，每次保存都更新
-                }
-
-                // 尝试保存到 localStorage 作为备份
-                let savedToLocalStorage = false;
-                try {
-                    localStorage.setItem('QRA_settings', JSON.stringify(settings));
-                    savedToLocalStorage = true;
-                } catch(e) {
-                    console.error(`[${Constants.EXTENSION_NAME}] 保存到localStorage失败:`, e);
-                }
-
-                // 尝试使用 context API 保存
-                let savedToContext = false;
-                if (typeof context !== 'undefined' && context.saveExtensionSettings) {
-                    try {
-                        context.saveExtensionSettings();
-                        console.log(`[${Constants.EXTENSION_NAME}] 设置已通过 context.saveExtensionSettings() 保存`);
-                        savedToContext = true;
-                    } catch(e) {
-                        console.error(`[${Constants.EXTENSION_NAME}] 通过 context.saveExtensionSettings() 保存设置失败:`, e);
-                    }
-                } else {
-                    console.warn(`[${Constants.EXTENSION_NAME}] context.saveExtensionSettings 不可用`);
-                }
-
-                const success = savedToContext || savedToLocalStorage; // 至少一种保存成功
-
-                // 显示保存成功的反馈
-                const saveStatus = document.getElementById('qr-save-status');
-                 if (saveStatus) {
-                     if (success) {
-                         saveStatus.textContent = '✓ 设置已保存';
-                         saveStatus.style.color = '#4caf50';
-                     } else {
-                         saveStatus.textContent = '✗ 保存失败';
-                          saveStatus.style.color = '#f44336';
-                     }
-                     setTimeout(() => { saveStatus.textContent = ''; }, 2000);
-                 }
-
-                 // 更新保存按钮视觉反馈
-                 const saveButton = document.getElementById('qr-save-settings');
-                 if (saveButton && success) {
-                     const originalText = '<i class="fa-solid fa-floppy-disk"></i> 保存设置'; // 原始 HTML
-                     const originalBg = saveButton.style.backgroundColor;
-                     saveButton.innerHTML = '<i class="fa-solid fa-check"></i> 已保存';
-                     saveButton.style.backgroundColor = '#4caf50';
-                     setTimeout(() => {
-                         saveButton.innerHTML = originalText;
-                         saveButton.style.backgroundColor = originalBg; // 恢复原背景色或置空让 CSS 控制
-                     }, 2000);
-                 }
-
-                return success; // 返回保存是否成功
-            },
-            // 暴露 updateIconPreview 供设置面板使用可能更好
-            updateIconPreview: updateIconPreview
-        };
-
-        // Append menu to the body
-        document.body.appendChild(menu);
-
-        // Load settings and apply initial UI state (like button visibility and icon)
-        loadAndApplyInitialSettings(); // 使用下面的新函数
-
-        // Setup event listeners for the button, menu, etc.
-        setupEventListeners(); // events.js
-
-        // 设置文件上传监听器 (现在在 settings.js 中处理，确保 setupEventListeners 调用了它)
-        // setupFileUploadListener(); // 不再需要在这里调用
-
-        console.log(`[${Constants.EXTENSION_NAME}] Initialization complete.`);
-    } catch (err) {
-        console.error(`[${Constants.EXTENSION_NAME}] 初始化失败:`, err);
-    }
-}
-
-// // 移除旧的 setupFileUploadListener 函数
-
-/**
- * 加载初始设置并应用到插件状态和按钮显示
- * (与 settings.js 中的 loadAndApplySettingsToPanel 不同，这个是应用到插件运行状态)
- */
-function loadAndApplyInitialSettings() {
-    const settings = window.extension_settings[Constants.EXTENSION_NAME];
-
-    // 确保默认值已设置 (防御性编程)
-    settings.enabled = settings.enabled !== false;
-    settings.iconType = settings.iconType || Constants.ICON_TYPES.ROCKET;
-    settings.customIconUrl = settings.customIconUrl || '';
-    settings.customIconSize = settings.customIconSize || Constants.DEFAULT_CUSTOM_ICON_SIZE; // <-- 新增
-    settings.faIconCode = settings.faIconCode || '';                                  // <-- 新增
-    settings.matchButtonColors = settings.matchButtonColors !== false;
-    settings.menuStyles = settings.menuStyles || JSON.parse(JSON.stringify(Constants.DEFAULT_MENU_STYLES));
-
-    // 更新body类控制显示状态
-    document.body.classList.remove('qra-enabled', 'qra-disabled');
-    document.body.classList.add(settings.enabled ? 'qra-enabled' : 'qra-disabled');
-
-    // 更新火箭按钮的初始可见性
-    if (sharedState.domElements.rocketButton) {
-        sharedState.domElements.rocketButton.style.display = settings.enabled ? 'flex' : 'none';
-    }
-
-    // 更新初始图标显示 (调用 settings.js 导出的函数)
-    updateIconDisplay();
-
-    // 应用初始菜单样式设置
-    if (typeof updateMenuStylesUI === 'function') {
-        updateMenuStylesUI();
-    }
-
-    console.log(`[${Constants.EXTENSION_NAME}] Initial settings applied.`);
-}
-
-// 确保 jQuery 可用 - 使用原生 js 备用
-function onReady(callback) {
-    if (document.readyState === "complete" || document.readyState === "interactive") {
-        setTimeout(callback, 1);
+    // Render chat replies or placeholder (includes standard and JS Runner items)
+    if (chatReplies && chatReplies.length > 0) {
+        chatReplies.forEach(reply => addItem(chatItemsContainer, reply));
     } else {
-        document.addEventListener("DOMContentLoaded", callback);
+        chatItemsContainer.appendChild(createEmptyPlaceholder('没有可用的聊天快速回复或脚本'));
+    }
+
+    // Render global replies or placeholder (standard only)
+    if (globalReplies && globalReplies.length > 0) {
+        globalReplies.forEach(reply => addItem(globalItemsContainer, reply));
+    } else {
+        globalItemsContainer.appendChild(createEmptyPlaceholder('没有可用的全局快速回复'));
     }
 }
 
-// 添加到 onReady 回调之前
-function loadSettingsFromLocalStorage() {
-    try {
-        const savedSettings = localStorage.getItem('QRA_settings');
-        if (savedSettings) {
-            const parsedSettings = JSON.parse(savedSettings);
-            // 将保存的设置合并到当前设置 (确保新字段也能被加载)
-            const currentSettings = extension_settings[Constants.EXTENSION_NAME];
-            Object.assign(currentSettings, parsedSettings); // 合并，localStorage中的值会覆盖默认值
-            console.log(`[${Constants.EXTENSION_NAME}] 从localStorage加载了设置:`, currentSettings);
-            return true;
-        }
-    } catch(e) {
-        console.error(`[${Constants.EXTENSION_NAME}] 从localStorage加载设置失败:`, e);
-    }
-    return false;
+/**
+ * Creates an empty placeholder element (e.g., when a list is empty).
+ * @param {string} message - The message to display in the placeholder.
+ * @returns {HTMLDivElement} The placeholder div element.
+ */
+export function createEmptyPlaceholder(message) {
+    const empty = document.createElement('div');
+    empty.className = Constants.CLASS_EMPTY;
+    empty.textContent = message;
+    return empty;
 }
 
-// 在 onReady 回调中
-onReady(() => {
-    try {
-        // 1. 尝试从localStorage加载设置 (会更新 window.extension_settings)
-        loadSettingsFromLocalStorage();
+/**
+ * Updates the visibility of the menu UI and related ARIA attributes.
+ * Fetches and renders content if the menu is being shown.
+ */
+export function updateMenuVisibilityUI() {
+    const { menu, rocketButton } = sharedState.domElements;
+    const show = sharedState.menuVisible;
 
-        // 2. 确保设置面板容器存在
-        let settingsContainer = document.getElementById('extensions_settings');
-        if (!settingsContainer) {
-            console.warn("[Quick Reply Menu] #extensions_settings not found, creating dummy container.");
-            settingsContainer = document.createElement('div');
-            settingsContainer.id = 'extensions_settings';
-            settingsContainer.style.display = 'none'; // 隐藏
-            document.body.appendChild(settingsContainer);
+    if (!menu || !rocketButton) {
+         console.error(`[${Constants.EXTENSION_NAME}] Menu or rocket button DOM element not found for visibility update.`);
+         return;
+     }
+
+    if (show) {
+        // Update content *before* showing
+        console.log(`[${Constants.EXTENSION_NAME}] Opening menu, fetching replies (including JS Runner)...`);
+        try {
+            const { chat, global } = fetchQuickReplies(); // From api.js (now includes JS runner in chat)
+             if (chat === undefined || global === undefined) {
+                 throw new Error("fetchQuickReplies did not return expected structure.");
+             }
+            renderQuickReplies(chat, global); // From this file (will render both types)
+        } catch (error) {
+             console.error(`[${Constants.EXTENSION_NAME}] Error fetching or rendering replies:`, error);
+             // Display an error message within the menu containers
+             const errorMsg = "加载回复列表失败";
+             if (sharedState.domElements.chatItemsContainer) {
+                 sharedState.domElements.chatItemsContainer.innerHTML = ''; // Clear first
+                 sharedState.domElements.chatItemsContainer.appendChild(createEmptyPlaceholder(errorMsg));
+             }
+              if (sharedState.domElements.globalItemsContainer) {
+                  sharedState.domElements.globalItemsContainer.innerHTML = ''; // Clear first
+                  sharedState.domElements.globalItemsContainer.appendChild(createEmptyPlaceholder(errorMsg));
+              }
         }
 
-        // 3. 添加设置面板HTML内容 (使用 settings.js 的函数)
-        // 注意：innerHTML += 可能导致事件监听器丢失，最好找到特定扩展的容器并替换其内容
-        // 假设每个扩展都有自己的 settings div，例如 <div id="quick-reply-menu-settings">
-        const settingsHtml = createSettingsHtml(); // 来自 settings.js
-        // 将HTML插入到 settingsContainer 中。如果其他扩展也用 innerHTML +=，可能会有问题。
-        // 最好是找到一个专门为此扩展准备的容器。
-        // 临时的简单方法：
-         settingsContainer.insertAdjacentHTML('beforeend', settingsHtml);
+        // Show the menu and update ARIA/classes
+        menu.style.display = 'block';
+        rocketButton.setAttribute('aria-expanded', 'true');
+        rocketButton.classList.add('active'); // For visual feedback
 
+        // Optional: Focus management (consider accessibility implications)
+        // const firstItem = menu.querySelector(`.${Constants.CLASS_ITEM}`);
+        // firstItem?.focus();
 
-        // 4. 初始化插件 (创建按钮、菜单等)
-        initializePlugin();
-
-        // 5. 加载设置到设置面板UI元素 (调用 settings.js 的函数)
-        loadAndApplySettingsToPanel(); // 加载设置到面板中的控件
-
-    } catch (err) {
-        console.error(`[${Constants.EXTENSION_NAME}] 启动失败:`, err);
+    } else {
+        // Hide the menu and update ARIA/classes
+        menu.style.display = 'none';
+        rocketButton.setAttribute('aria-expanded', 'false');
+        rocketButton.classList.remove('active');
     }
-});
+}
