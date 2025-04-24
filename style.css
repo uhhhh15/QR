@@ -18,33 +18,37 @@ body.qra-disabled #quick-reply-rocket-button {
 
 /* --- 快速回复按钮 --- */
 #quick-reply-rocket-button {
-    color: var(--button-text-color, #a0a0a0); /* 使用变量或默认为灰色 */
-    font-size: 1.2em; /* 图标大小 */
-    line-height: var(--buttons-bar-height); /* 行高与按钮栏一致 */
-    height: var(--buttons-bar-height);      /* 高度与按钮栏一致 */
-    display: flex;         /* 使用 Flexbox 布局 */
-    align-items: center;   /* 垂直居中图标 */
+    /* color: var(--button-text-color, #a0a0a0); */ /* 颜色由 primary/secondary-button 类控制 */
+    font-size: 1.2em; /* 可以作为 FA 图标的默认大小参考 */
+    line-height: var(--buttons-bar-height);
+    height: var(--buttons-bar-height);
+    display: flex;         /* 必须是 flex 才能正确居中内容 */
+    align-items: center;   /* 垂直居中 */
     justify-content: center; /* 水平居中 */
-    margin-right: 4px;     /* 右边距 */
-    cursor: pointer;       /* 鼠标样式：手型 */
-    transition: all 0.2s;  /* 过渡效果 */
-    width: 32px;          /* 固定宽度 */
+    margin-right: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 32px;           /* 固定宽度 */
+    overflow: hidden;      /* 防止内容溢出 */
+    background-size: contain; /* 确保背景图完整显示 */
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
-#quick-reply-rocket-button:hover {
-    color: var(--button-text-hover-color, #ffffff); /* 使用变量或默认为白色 */
-}
+/* 移除按钮本身的 :hover 颜色设置，依赖 interactable 和 primary/secondary 类 */
+/* #quick-reply-rocket-button:hover { ... } */
 
 #quick-reply-rocket-button.active {
-    color: var(--button-text-active-color, #55aaff); /* 使用变量或默认为蓝色 */
+    /* 激活状态可以添加一些效果，例如边框或轻微背景变化 */
+    /* box-shadow: inset 0 0 0 1px var(--button-text-active-color, #55aaff); */
 }
 
-/* 快速回复菜单容器 */
+/* --- 快速回复菜单容器 --- */
 #quick-reply-menu {
     display: none;
     position: fixed;
     left: 50%;
-    top: 190px;
+    top: 190px; /* 或根据需要调整 */
     transform: translateX(-50%);
     z-index: 1001;
     background-color: var(--qr-menu-bg-color, rgba(0, 0, 0, 0.85));
@@ -57,7 +61,7 @@ body.qra-disabled #quick-reply-rocket-button {
     transition: background-color 0.3s, border-color 0.3s;
 }
 
-/* 设置样式 */
+/* --- 设置样式 --- */
 .quick-reply-settings-row {
     display: flex;
     align-items: center;
@@ -66,49 +70,75 @@ body.qra-disabled #quick-reply-rocket-button {
 }
 
 .quick-reply-settings-row label {
-    min-width: 100px;
+    min-width: 80px; /* 稍微缩小一点 */
+    flex-shrink: 0; /* 防止标签被压缩 */
+    text-align: right;
+    margin-right: 5px;
 }
 
-/* 调整图标类型下拉框宽度 */
-#quick-reply-menu-icon-type {
+/* 调整下拉框 */
+#quick-reply-menu-icon-type { /* 注意 ID 可能根据 constants.js 变化 */
     width: 120px !important;
     max-width: 120px !important;
 }
 
-/* 调整复选框和标签位置 */
-#quick-reply-menu-color-match-checkbox {
+/* 复选框和标签对齐 */
+.quick-reply-settings-row:has(#quick-reply-menu-color-match-checkbox) { /* 注意 ID 可能根据 constants.js 变化 */
+    display: flex;
+    align-items: center;
+}
+.quick-reply-settings-row:has(#quick-reply-menu-color-match-checkbox) label {
+    min-width: 0;
+    margin: 0;
+    text-align: left; /* 恢复左对齐 */
+}
+#quick-reply-menu-color-match-checkbox { /* 注意 ID 可能根据 constants.js 变化 */
     margin-right: 5px;
     vertical-align: middle;
 }
 
-/* 调整复选框容器样式 */
-.quick-reply-settings-row:has(#quick-reply-menu-color-match-checkbox) {
-    display: flex;
-    align-items: center;
+/* --- 自定义图标和 Font Awesome 输入容器 --- */
+.custom-icon-container,
+.fa-icon-container {
+    /* 初始隐藏，由 JS 控制显示 */
+    /* display: none; */
+    margin-top: 10px;
+    /* 确保标签和输入框在同一行 */
+    /* display: flex; Already handled by .flex-container */
+    /* align-items: center; Already handled by .flex-container */
 }
 
-.quick-reply-settings-row:has(#quick-reply-menu-color-match-checkbox) label {
+/* 调整自定义图标区域内部布局 */
+.custom-icon-container > div {
     display: flex;
-    align-items: center;
-    min-width: 0;
-    margin: 0;
-}
-
-/* 调整按钮容器位置 */
-.quick-reply-settings-row:has(#quick-reply-menu-menu-style-button) {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 15px;
-}
-
-.custom-icon-container {
-    display: flex;
-    align-items: center;
-    margin-top: 5px;
-}
-
-.custom-icon-container input {
     flex-grow: 1;
+    gap: 5px;
+    align-items: center; /* 垂直居中输入框和按钮 */
+}
+
+.custom-icon-container input[type="text"] {
+    flex-grow: 1; /* URL/代码输入框占据大部分空间 */
+}
+
+/* 自定义图标大小输入框样式 */
+#quick-reply-menu-custom-icon-size { /* 注意 ID 可能根据 constants.js 变化 */
+    width: 60px;
+    flex-shrink: 0; /* 防止被压缩 */
+    text-align: center;
+}
+
+.custom-icon-container button {
+    flex-shrink: 0; /* 防止按钮被压缩 */
+}
+
+/* Font Awesome 输入框容器 */
+.fa-icon-container input[type="text"] {
+    flex-grow: 1;
+}
+
+/* 隐藏 Font Awesome 输入容器的默认样式 */
+.fa-icon-container {
+    display: none; /* 由 JS 控制 */
 }
 
 /* 菜单布局 */
@@ -191,13 +221,6 @@ body.qra-disabled #quick-reply-rocket-button {
     transition: color 0.3s;
 }
 
-/* 自定义图标支持 */
-#quick-reply-rocket-button.custom-icon {
-    background-size: 20px 20px;
-    background-position: center;
-    background-repeat: no-repeat;
-}
-
 /* 菜单样式设置面板 */
 .quick-reply-style-group {
     margin-bottom: 15px;
@@ -212,7 +235,7 @@ body.qra-disabled #quick-reply-rocket-button {
 }
 
 /* 菜单样式设置面板 - 确保背景不透明 */
-#quick-reply-menu-menu-style-panel {
+#quick-reply-menu-menu-style-panel { /* 注意 ID 可能根据 constants.js 变化 */
     display: none;
     position: fixed;
     left: 50%;
@@ -225,7 +248,6 @@ body.qra-disabled #quick-reply-rocket-button {
     max-width: 90vw;
     max-height: 80vh;
     overflow-y: auto;
-    /* 确保背景不透明 */
     background-color: var(--background-color1, #0f0f0f);
     border: 1px solid var(--border-color, #444);
     color: var(--text-color, #fff);
@@ -239,7 +261,7 @@ body.qra-disabled #quick-reply-rocket-button {
 
 /* 统一菜单样式标题和设置选项文字样式 */
 .quick-reply-style-group h4,
-.quick-reply-settings-row label {
+.quick-reply-settings-row label { /* Re-apply text color */
     color: var(--text-color, #fff);
 }
 
@@ -297,36 +319,34 @@ body.qra-disabled #quick-reply-rocket-button {
 /* 移动设备适配 */
 @media screen and (max-width: 768px) {
     .quick-reply-settings-row {
-        flex-wrap: wrap;
+        flex-wrap: wrap; /* 允许换行 */
     }
-    
-    /* 针对移动设备优化图标类型和预览的布局 */
-    .quick-reply-settings-row:has(#quick-reply-menu-icon-type) {
-        flex-wrap: nowrap;
-    }
-    
-    .quick-reply-settings-row > label {
-        width: 100%;
+    .quick-reply-settings-row label {
+        width: 100%; /* 标签占据整行 */
+        text-align: left; /* 左对齐 */
         margin-bottom: 5px;
     }
-    
-    /* 针对移动设备优化自定义图标输入框 */
+
+    /* 优化自定义图标输入 */
     .custom-icon-container > div {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        width: 100%;
+        flex-wrap: wrap; /* 允许内部元素换行 */
     }
-    
-    .custom-icon-container button {
+    .custom-icon-container input[type="text"],
+    .custom-icon-container input[type="number"] {
+        width: calc(50% - 5px); /* 尝试并排，留出间隙 */
+        min-width: 100px; /* 最小宽度 */
+    }
+     .custom-icon-container button {
+        width: 100% !important; /* 文件选择按钮占满一行 */
         margin-top: 5px;
-        width: 100% !important;
+     }
+
+    /* 优化 FA 输入 */
+    .fa-icon-container input[type="text"] {
+        width: 100%; /* FA 输入框占满 */
     }
-    
-    /* 确保滑动条容器不换行 */
-    .slider-container {
-        flex-wrap: nowrap;
-    }
+
+    /* 其他移动端调整... */
 }
 
 /* 将变量声明添加到:root以确保全局可用 */
@@ -351,7 +371,8 @@ body.qra-disabled #quick-reply-rocket-button {
     display: none;
     position: fixed;
     left: 50%;
-    /* 不再使用top百分比和transform垂直居中，而是在JS中动态计算 */
+    /* top is dynamically set by JS */
+    transform: translateX(-50%); /* Horizontal centering */
     z-index: 9999; /* 确保在最上层 */
     background-color: var(--background-color1, #0f0f0f);
     border: 1px solid var(--border-color, #444);
@@ -359,6 +380,8 @@ body.qra-disabled #quick-reply-rocket-button {
     padding: 15px;
     width: 500px;
     max-width: 90vw;
+    max-height: 80vh; /* Max height */
+    overflow-y: auto; /* Add scroll if needed */
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
@@ -389,18 +412,18 @@ body.qra-disabled #quick-reply-rocket-button {
 /* 确定按钮样式 */
 .qr-usage-panel .menu_button {
     min-width: 80px;
-    margin: 0 auto;
+    margin: 0 auto; /* Center the button if it's the only element */
 }
 
 /* 将通用的.menu_button选择器改为更具体的选择器 */
 .qr-usage-panel .menu_button,
-#quick-reply-menu-menu-style-panel .menu_button {
-    width: auto !important; 
+#quick-reply-menu-menu-style-panel .menu_button { /* 注意 ID 可能根据 constants.js 变化 */
+    width: auto !important;
     padding: 0 10px !important;
     white-space: nowrap;
 }
 
-/* 图标预览弹窗内的图标样式 */
+/* 图标预览弹窗内的图标样式 (如果使用) */
 #quick-reply-icon-preview-display {
     font-size: 24px;
     width: 50px;
@@ -413,7 +436,7 @@ body.qra-disabled #quick-reply-rocket-button {
     border-radius: 6px;
 }
 
-/* 图标预览弹窗中的文本样式 */
+/* 图标预览弹窗中的文本样式 (如果使用) */
 #quick-reply-icon-preview-display span {
     font-size: 14px;
     color: var(--text-color, #ccc);
