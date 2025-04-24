@@ -2,100 +2,143 @@
 import * as Constants from './constants.js';
 import { sharedState, setMenuVisible } from './state.js';
 import { updateMenuVisibilityUI } from './ui.js';
-// 确保导入 triggerQuickReply (现在只用于标准QR)
-import { triggerQuickReply } from './api.js';
-import { handleSettingsChange, handleUsageButtonClick, closeUsagePanel } from './settings.js';
-// 导入 extension_settings 以便在样式函数中使用
-import { extension_settings } from './index.js'; 
+import { triggerQuickReply } from './api.js'; // triggerQuickReply 只用于标准回复
+// 导入 settings.js 中的函数用于处理设置变化和UI更新
+import { handleSettingsChange, handleUsageButtonClick, closeUsagePanel, updateIconDisplay } from './settings.js';
+// 导入 index.js 的设置对象 (用于样式函数)
+import { extension_settings } from './index.js'; // Assuming index.js exports extension_settings
 
 /**
  * Handles clicks on the rocket button. Toggles menu visibility state and updates UI.
  */
 export function handleRocketButtonClick() {
     setMenuVisible(!sharedState.menuVisible); // Toggle state
-    updateMenuVisibilityUI(); // Update UI based on new state (this will fetch and render replies)
+    updateMenuVisibilityUI(); // Update UI based on new state (will fetch/render replies if opening)
 }
 
 /**
- * Handles clicks outside the menu and the rocket button to close the menu.
+ * Handles clicks outside the menu to close it.
+ * Also closes the style panel or usage panel if they are open and clicked outside.
  * @param {Event} event
  */
 export function handleOutsideClick(event) {
     const { menu, rocketButton } = sharedState.domElements;
+    const stylePanel = document.getElementById(Constants.ID_MENU_STYLE_PANEL);
+    const usagePanel = document.getElementById(Constants.ID_USAGE_PANEL);
+    const styleButton = document.getElementById(Constants.ID_MENU_STYLE_BUTTON);
+    const usageButton = document.getElementById(Constants.ID_USAGE_BUTTON);
+
+    // Close main menu if click is outside menu and its trigger button
     if (sharedState.menuVisible &&
         menu && rocketButton &&
         !menu.contains(event.target) &&
         event.target !== rocketButton &&
-        !rocketButton.contains(event.target)
+        !rocketButton.contains(event.target) // Check if click is not inside the rocket button either
        ) {
         setMenuVisible(false); // Update state
         updateMenuVisibilityUI(); // Update UI
     }
+
+    // Close style panel if click is outside the panel and its trigger button
+    if (stylePanel && stylePanel.style.display === 'block' &&
+        !stylePanel.contains(event.target) &&
+        event.target !== styleButton && // Don't close if clicking the trigger button again
+        !styleButton?.contains(event.target)
+       ) {
+        closeMenuStylePanel(); // Use the specific close function
+    }
+
+    // Close usage panel if click is outside the panel and its trigger button
+    if (usagePanel && usagePanel.style.display === 'block' &&
+        !usagePanel.contains(event.target) &&
+        event.target !== usageButton && // Don't close if clicking the trigger button again
+        !usageButton?.contains(event.target)
+       ) {
+        closeUsagePanel(); // Use the specific close function from settings.js
+    }
 }
 
+
 /**
- * Handles clicks on individual quick reply items (buttons) in the QR助手 menu.
- * Determines if it's a standard QR or a JS Runner button and acts accordingly.
- * @param {Event} event The click event object, where event.currentTarget is the button clicked inside the menu.
+ * Handles clicks on individual quick reply items (buttons).
+ * Reads data attributes.
+ * If it's a standard reply, triggers the API call.
+ * If it's a JS Runner proxy, simulates a click on the original button.
+ * @param {Event} event The click event on the button.
  */
 export async function handleQuickReplyClick(event) {
-    const button = event.currentTarget; // The button inside QR助手 menu
+    const button = event.currentTarget; // 获取被点击的菜单项按钮
     const setName = button.dataset.setName;
     const label = button.dataset.label;
-    const isStandard = button.dataset.isStandard === 'true';
+    // 读取 isStandard 标记，注意 dataset 的值是字符串
+    // 只有明确是 'false' 才认为是非标准；其他情况（'true' 或 属性不存在）都视为标准
+    const isStandard = button.dataset.isStandard !== 'false';
 
-    if (!label) {
-        console.error(`[${Constants.EXTENSION_NAME}] Missing data-label on clicked item.`);
-        setMenuVisible(false);
+    if (!setName || !label) {
+        console.error(`[${Constants.EXTENSION_NAME}] Missing data-set-name or data-label on clicked item.`);
+        setMenuVisible(false); // Close menu on error
         updateMenuVisibilityUI();
         return;
     }
 
+    // 先关闭菜单，再执行操作 (视觉上更快响应)
+    setMenuVisible(false);
+    updateMenuVisibilityUI();
+
+    // ***************************************************************
+    // --- 修改：根据 isStandard 决定行为 ---
+    // ***************************************************************
     if (isStandard) {
-        // --- 处理标准 Quick Reply ---
-        if (!setName) {
-             console.error(`[${Constants.EXTENSION_NAME}] Missing data-set-name for standard QR: ${label}`);
-        } else {
+        // --- 标准 Quick Reply v2 行为 ---
+        console.log(`[${Constants.EXTENSION_NAME} Debug] Clicked standard reply: ${setName} / ${label}. Triggering API...`);
+        try {
+            // 调用 api.js 中的 triggerQuickReply
             await triggerQuickReply(setName, label);
+        } catch (error) {
+            // triggerQuickReply 内部会记录错误日志
+            console.error(`[${Constants.EXTENSION_NAME}] Error occurred during triggerQuickReply for "${setName}.${label}".`);
         }
     } else {
-        // --- 处理 JS Runner 按钮 (模拟点击原始按钮) ---
-        console.log(`[${Constants.EXTENSION_NAME}] Handling JS Runner button: "${label}"`);
+        // --- JS Runner 按钮代理行为：模拟点击原始按钮 ---
+        console.log(`[${Constants.EXTENSION_NAME} Debug] Clicked JS Runner proxy for label: "${label}". Attempting to find and click original button...`);
         try {
-            const jsRunnerButtonContainer = document.getElementById('TH-script-buttons');
-            let originalButton = null;
+            const jsRunnerButtonContainerId = 'TH-script-buttons'; // JS Runner 按钮容器的 ID
+            const jsRunnerButtonSelector = 'div.qr--button.menu_button.interactable'; // JS Runner 按钮的选择器
+            const container = document.getElementById(jsRunnerButtonContainerId);
 
-            if (jsRunnerButtonContainer) {
-                // ***** 重要修改：使用正确的选择器查找 div *****
-                const buttons = jsRunnerButtonContainer.querySelectorAll('div.qr--button.menu_button.interactable');
-                // ***********************************************
-                for (const btnDiv of buttons) { // 现在变量是 btnDiv
-                    if (btnDiv.textContent?.trim() === label) {
-                        originalButton = btnDiv;
-                        break;
+            if (container) {
+                console.log(`[${Constants.EXTENSION_NAME} Debug] Found JS Runner container: #${jsRunnerButtonContainerId}`);
+                const originalButtons = container.querySelectorAll(jsRunnerButtonSelector);
+                let originalButtonToClick = null;
+
+                console.log(`[${Constants.EXTENSION_NAME} Debug] Searching for original button with label "${label}" among ${originalButtons.length} candidates...`);
+                // 遍历容器内所有匹配的按钮，找到文本内容精确匹配的那一个
+                for (const btn of originalButtons) {
+                    const btnLabel = btn.textContent?.trim();
+                    // console.log(`[${Constants.EXTENSION_NAME} Debug] Checking candidate button with label: "${btnLabel}"`); // Verbose log if needed
+                    if (btnLabel === label) {
+                        originalButtonToClick = btn;
+                        console.log(`[${Constants.EXTENSION_NAME} Debug] Found matching original JS Runner button.`);
+                        break; // 找到就停止遍历
                     }
                 }
-            }
 
-            if (originalButton) {
-                console.log(`[${Constants.EXTENSION_NAME}] Found original JS Runner button (div) for "${label}". Simulating click...`);
-                originalButton.click(); // 模拟点击原始的 div
-                console.log(`[${Constants.EXTENSION_NAME}] Click simulated for "${label}".`);
+                if (originalButtonToClick) {
+                    console.log(`[${Constants.EXTENSION_NAME} Debug] Simulating click on original button:`, originalButtonToClick);
+                    originalButtonToClick.click(); // <<< 模拟点击 >>>
+                    console.log(`[${Constants.EXTENSION_NAME}] Click successfully simulated on original button for "${label}".`);
+                } else {
+                    console.error(`[${Constants.EXTENSION_NAME}] Could not find the original JS Runner button with label "${label}" in container #${jsRunnerButtonContainerId} to simulate click.`);
+                }
             } else {
-                console.error(`[${Constants.EXTENSION_NAME}] Could not find the original JS Runner button (div) with label "${label}" in #TH-script-buttons.`);
+                console.error(`[${Constants.EXTENSION_NAME}] Could not find JS Runner container #${jsRunnerButtonContainerId} to locate original button.`);
             }
         } catch (error) {
-            console.error(`[${Constants.EXTENSION_NAME}] Error simulating click for JS Runner button "${label}":`, error);
+            console.error(`[${Constants.EXTENSION_NAME}] Error simulating click on JS Runner button for "${label}":`, error);
         }
     }
-
-    // 关闭菜单
-    setTimeout(() => {
-        setMenuVisible(false);
-        updateMenuVisibilityUI();
-    }, 50);
+    // --- 行为区分结束 ---
 }
-
 
 /**
  * 处理菜单样式按钮点击
@@ -103,6 +146,7 @@ export async function handleQuickReplyClick(event) {
 export function handleMenuStyleButtonClick() {
     const stylePanel = document.getElementById(Constants.ID_MENU_STYLE_PANEL);
     if (stylePanel) {
+        // 载入当前样式到面板
         loadMenuStylesIntoPanel();
         stylePanel.style.display = 'block';
     }
@@ -113,49 +157,57 @@ export function handleMenuStyleButtonClick() {
  */
 function loadMenuStylesIntoPanel() {
     const settings = extension_settings[Constants.EXTENSION_NAME];
+    // 确保menuStyles存在，否则使用默认值
     const styles = settings.menuStyles || JSON.parse(JSON.stringify(Constants.DEFAULT_MENU_STYLES));
 
-    // Helper to safely get style values or defaults
-    const getStyleValue = (key, defaultValue) => styles[key] !== undefined ? styles[key] : defaultValue;
+    // Helper to safely set element value
+    const safeSetValue = (id, value) => {
+        const element = document.getElementById(id);
+        if (element) element.value = value;
+        else console.warn(`[${Constants.EXTENSION_NAME} Style Panel] Element not found: #${id}`);
+    };
+    const safeSetText = (id, value) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = value;
+         else console.warn(`[${Constants.EXTENSION_NAME} Style Panel] Element not found: #${id}`);
+    };
 
-    // Item Background Color and Opacity
-    const itemBgRgba = getStyleValue('itemBgColor', Constants.DEFAULT_MENU_STYLES.itemBgColor);
-    document.getElementById('qr-item-bgcolor-picker').value = rgbaToHex(itemBgRgba);
-    document.getElementById('qr-item-bgcolor-text').value = rgbaToHex(itemBgRgba).toUpperCase();
-    document.getElementById('qr-item-opacity').value = getOpacityFromRgba(itemBgRgba);
-    document.getElementById('qr-item-opacity-value').textContent = getOpacityFromRgba(itemBgRgba);
+    // 设置各个控件的值时添加检查
+    const itemBgColorHex = styles.itemBgColor && typeof styles.itemBgColor === 'string' ? rgbaToHex(styles.itemBgColor) : '#3c3c3c';
+    safeSetValue('qr-item-bgcolor-picker', itemBgColorHex);
+    safeSetValue('qr-item-bgcolor-text', itemBgColorHex.toUpperCase());
 
-    // Item Text Color
-    const itemTextColor = getStyleValue('itemTextColor', Constants.DEFAULT_MENU_STYLES.itemTextColor);
-    document.getElementById('qr-item-color-picker').value = itemTextColor;
-    document.getElementById('qr-item-color-text').value = itemTextColor.toUpperCase();
+    const itemOpacity = styles.itemBgColor && typeof styles.itemBgColor === 'string' ? getOpacityFromRgba(styles.itemBgColor) : 0.7;
+    safeSetValue('qr-item-opacity', itemOpacity);
+    safeSetText('qr-item-opacity-value', itemOpacity);
 
-    // Title Text Color
-    const titleColor = getStyleValue('titleColor', Constants.DEFAULT_MENU_STYLES.titleColor);
-    document.getElementById('qr-title-color-picker').value = titleColor;
-    document.getElementById('qr-title-color-text').value = titleColor.toUpperCase();
+    const itemTextColor = styles.itemTextColor || '#ffffff';
+    safeSetValue('qr-item-color-picker', itemTextColor);
+    safeSetValue('qr-item-color-text', itemTextColor.toUpperCase());
 
-    // Title Border Color
-    const titleBorderColor = getStyleValue('titleBorderColor', Constants.DEFAULT_MENU_STYLES.titleBorderColor);
-    document.getElementById('qr-title-border-picker').value = titleBorderColor;
-    document.getElementById('qr-title-border-text').value = titleBorderColor.toUpperCase();
+    const titleColor = styles.titleColor || '#cccccc';
+    safeSetValue('qr-title-color-picker', titleColor);
+    safeSetValue('qr-title-color-text', titleColor.toUpperCase());
 
-    // Empty Text Color
-    const emptyColor = getStyleValue('emptyTextColor', Constants.DEFAULT_MENU_STYLES.emptyTextColor);
-    document.getElementById('qr-empty-color-picker').value = emptyColor;
-    document.getElementById('qr-empty-color-text').value = emptyColor.toUpperCase();
+    const titleBorderColor = styles.titleBorderColor || '#444444';
+    safeSetValue('qr-title-border-picker', titleBorderColor);
+    safeSetValue('qr-title-border-text', titleBorderColor.toUpperCase());
 
-    // Menu Background Color and Opacity
-    const menuBgRgba = getStyleValue('menuBgColor', Constants.DEFAULT_MENU_STYLES.menuBgColor);
-    document.getElementById('qr-menu-bgcolor-picker').value = rgbaToHex(menuBgRgba);
-    document.getElementById('qr-menu-bgcolor-text').value = rgbaToHex(menuBgRgba).toUpperCase();
-    document.getElementById('qr-menu-opacity').value = getOpacityFromRgba(menuBgRgba);
-    document.getElementById('qr-menu-opacity-value').textContent = getOpacityFromRgba(menuBgRgba);
+    const emptyColor = styles.emptyTextColor || '#666666';
+    safeSetValue('qr-empty-color-picker', emptyColor);
+    safeSetValue('qr-empty-color-text', emptyColor.toUpperCase());
 
-    // Menu Border Color
-    const menuBorderColor = getStyleValue('menuBorderColor', Constants.DEFAULT_MENU_STYLES.menuBorderColor);
-    document.getElementById('qr-menu-border-picker').value = menuBorderColor;
-    document.getElementById('qr-menu-border-text').value = menuBorderColor.toUpperCase();
+    const menuBgColorHex = styles.menuBgColor && typeof styles.menuBgColor === 'string' ? rgbaToHex(styles.menuBgColor) : '#000000';
+    safeSetValue('qr-menu-bgcolor-picker', menuBgColorHex);
+    safeSetValue('qr-menu-bgcolor-text', menuBgColorHex.toUpperCase());
+
+    const menuOpacity = styles.menuBgColor && typeof styles.menuBgColor === 'string' ? getOpacityFromRgba(styles.menuBgColor) : 0.85;
+    safeSetValue('qr-menu-opacity', menuOpacity);
+    safeSetText('qr-menu-opacity-value', menuOpacity);
+
+    const menuBorderColor = styles.menuBorderColor || '#555555';
+    safeSetValue('qr-menu-border-picker', menuBorderColor);
+    safeSetValue('qr-menu-border-text', menuBorderColor.toUpperCase());
 }
 
 /**
@@ -172,36 +224,56 @@ export function closeMenuStylePanel() {
  * 从样式面板中收集样式设置并应用
  */
 export function applyMenuStyles() {
-    const settings = extension_settings[Constants.EXTENSION_NAME];
+    // 检查 settings 对象是否存在
+    if (!window.extension_settings || !window.extension_settings[Constants.EXTENSION_NAME]) {
+        console.error(`[${Constants.EXTENSION_NAME}] Settings object not found. Cannot apply styles.`);
+        return;
+    }
+    const settings = window.extension_settings[Constants.EXTENSION_NAME];
     if (!settings.menuStyles) {
         settings.menuStyles = JSON.parse(JSON.stringify(Constants.DEFAULT_MENU_STYLES));
     }
 
-    // 从颜色选择器或文本输入框获取值 (优先文本框，如果合法)
-    function getColorValue(pickerId, defaultHex) {
+    // Helper to get value safely
+    const safeGetValue = (id, defaultValue) => {
+        const element = document.getElementById(id);
+        return element ? element.value : defaultValue;
+    };
+
+    // 从颜色选择器或文本输入框获取值
+    function getColorValue(pickerId, defaultValue) {
         const textInput = document.getElementById(pickerId + '-text');
+        // Prefer valid hex from text input
         if (textInput && /^#[0-9A-F]{6}$/i.test(textInput.value)) {
             return textInput.value;
         }
+        // Fallback to picker value if it exists
         const picker = document.getElementById(pickerId);
-        return picker ? picker.value : defaultHex;
+        if (picker && picker.value) {
+            return picker.value;
+        }
+        // Finally, return the default value
+        return defaultValue;
     }
 
-    // 获取各项颜色值
-    const itemBgHex = getColorValue('qr-item-bgcolor-picker', '#3c3c3c');
-    const itemOpacity = document.getElementById('qr-item-opacity').value;
-    settings.menuStyles.itemBgColor = hexToRgba(itemBgHex, itemOpacity);
+    // 获取各项颜色值和透明度
+    const itemBgColorHex = getColorValue('qr-item-bgcolor-picker', '#3c3c3c');
+    const itemOpacity = safeGetValue('qr-item-opacity', 0.7);
+    settings.menuStyles.itemBgColor = hexToRgba(itemBgColorHex, itemOpacity);
 
     settings.menuStyles.itemTextColor = getColorValue('qr-item-color-picker', '#ffffff');
     settings.menuStyles.titleColor = getColorValue('qr-title-color-picker', '#cccccc');
     settings.menuStyles.titleBorderColor = getColorValue('qr-title-border-picker', '#444444');
     settings.menuStyles.emptyTextColor = getColorValue('qr-empty-color-picker', '#666666');
 
-    const menuBgHex = getColorValue('qr-menu-bgcolor-picker', '#000000');
-    const menuOpacity = document.getElementById('qr-menu-opacity').value;
-    settings.menuStyles.menuBgColor = hexToRgba(menuBgHex, menuOpacity);
+    const menuBgColorHex = getColorValue('qr-menu-bgcolor-picker', '#000000');
+    const menuOpacity = safeGetValue('qr-menu-opacity', 0.85);
+    settings.menuStyles.menuBgColor = hexToRgba(menuBgColorHex, menuOpacity);
 
     settings.menuStyles.menuBorderColor = getColorValue('qr-menu-border-picker', '#555555');
+
+    // 删除followTheme属性（如果存在，用于旧版兼容）
+    delete settings.menuStyles.followTheme;
 
     // 应用样式到菜单
     updateMenuStylesUI();
@@ -209,95 +281,124 @@ export function applyMenuStyles() {
     // 关闭面板
     closeMenuStylePanel();
 
-    // 触Settings保存 (如果可用)
-    if (typeof window.quickReplyMenu !== 'undefined' && window.quickReplyMenu.saveSettings) {
-        window.quickReplyMenu.saveSettings();
-    } else {
-         console.warn(`[${Constants.EXTENSION_NAME}] Cannot automatically save style settings.`);
-         // 可以在这里尝试localStorage备份
-         try {
-             localStorage.setItem('QRA_settings', JSON.stringify(extension_settings[Constants.EXTENSION_NAME]));
-         } catch(e) { console.error('Failed to save styles to localStorage:', e); }
-    }
+    // 提示用户需要保存设置
+    console.log(`[${Constants.EXTENSION_NAME}] Menu styles applied. Remember to save extension settings.`);
+    // Optionally, show a temporary message near the save button
+     const saveStatus = document.getElementById('qr-save-status');
+     if (saveStatus) {
+        saveStatus.textContent = '样式已应用，请保存设置';
+        saveStatus.style.color = '#ff9800'; // Orange warning color
+        setTimeout(() => { if(saveStatus.textContent === '样式已应用，请保存设置') saveStatus.textContent = ''; }, 3000);
+     }
 }
 
 /**
  * 重置样式到默认值
  */
 export function resetMenuStyles() {
-    const settings = extension_settings[Constants.EXTENSION_NAME];
+    // 检查 settings 对象是否存在
+    if (!window.extension_settings || !window.extension_settings[Constants.EXTENSION_NAME]) {
+        console.error(`[${Constants.EXTENSION_NAME}] Settings object not found. Cannot reset styles.`);
+        return;
+    }
+    const settings = window.extension_settings[Constants.EXTENSION_NAME];
     settings.menuStyles = JSON.parse(JSON.stringify(Constants.DEFAULT_MENU_STYLES));
 
     // 重新加载面板以显示默认值
     loadMenuStylesIntoPanel();
 
-    // 应用默认样式到UI
+    // 应用默认样式到菜单
     updateMenuStylesUI();
 
-    // 触Settings保存 (如果可用)
-    if (typeof window.quickReplyMenu !== 'undefined' && window.quickReplyMenu.saveSettings) {
-        window.quickReplyMenu.saveSettings();
-    }
+    // 提示用户需要保存
+    console.log(`[${Constants.EXTENSION_NAME}] Menu styles reset to default. Remember to save extension settings.`);
+     const saveStatus = document.getElementById('qr-save-status');
+     if (saveStatus) {
+        saveStatus.textContent = '样式已重置，请保存设置';
+        saveStatus.style.color = '#ff9800'; // Orange warning color
+        setTimeout(() => { if(saveStatus.textContent === '样式已重置，请保存设置') saveStatus.textContent = ''; }, 3000);
+     }
 }
 
 /**
- * 更新菜单的实际样式 (通过CSS变量)
+ * 更新菜单的实际样式 (应用CSS变量)
  */
 export function updateMenuStylesUI() {
-    const settings = extension_settings[Constants.EXTENSION_NAME];
-    // 使用 || 提供默认值，以防 menuStyles 尚未初始化
+    // 检查 settings 对象是否存在
+     if (!window.extension_settings || !window.extension_settings[Constants.EXTENSION_NAME]) {
+         // console.warn(`[${Constants.EXTENSION_NAME}] Settings object not found for applying styles. Using defaults.`);
+         // Apply default styles directly if settings are missing
+         const defaults = Constants.DEFAULT_MENU_STYLES;
+         document.documentElement.style.setProperty('--qr-item-bg-color', defaults.itemBgColor);
+         document.documentElement.style.setProperty('--qr-item-text-color', defaults.itemTextColor);
+         document.documentElement.style.setProperty('--qr-title-color', defaults.titleColor);
+         document.documentElement.style.setProperty('--qr-title-border-color', defaults.titleBorderColor);
+         document.documentElement.style.setProperty('--qr-empty-text-color', defaults.emptyTextColor);
+         document.documentElement.style.setProperty('--qr-menu-bg-color', defaults.menuBgColor);
+         document.documentElement.style.setProperty('--qr-menu-border-color', defaults.menuBorderColor);
+         return;
+     }
+    const settings = window.extension_settings[Constants.EXTENSION_NAME];
+    // 使用当前设置或默认值
     const styles = settings.menuStyles || Constants.DEFAULT_MENU_STYLES;
-    const root = document.documentElement;
 
-    // Helper to safely set CSS property
-    const setCssVar = (varName, value, defaultValue) => {
-        root.style.setProperty(varName, value !== undefined ? value : defaultValue);
-    };
+    const menu = document.getElementById(Constants.ID_MENU);
+    if (!menu) return; // Don't apply if menu doesn't exist
 
-    setCssVar('--qr-item-bg-color', styles.itemBgColor, Constants.DEFAULT_MENU_STYLES.itemBgColor);
-    setCssVar('--qr-item-text-color', styles.itemTextColor, Constants.DEFAULT_MENU_STYLES.itemTextColor);
-    setCssVar('--qr-title-color', styles.titleColor, Constants.DEFAULT_MENU_STYLES.titleColor);
-    setCssVar('--qr-title-border-color', styles.titleBorderColor, Constants.DEFAULT_MENU_STYLES.titleBorderColor);
-    setCssVar('--qr-empty-text-color', styles.emptyTextColor, Constants.DEFAULT_MENU_STYLES.emptyTextColor);
-    setCssVar('--qr-menu-bg-color', styles.menuBgColor, Constants.DEFAULT_MENU_STYLES.menuBgColor);
-    setCssVar('--qr-menu-border-color', styles.menuBorderColor, Constants.DEFAULT_MENU_STYLES.menuBorderColor);
+    // 应用自定义样式到 CSS 变量
+    document.documentElement.style.setProperty('--qr-item-bg-color', styles.itemBgColor || Constants.DEFAULT_MENU_STYLES.itemBgColor);
+    document.documentElement.style.setProperty('--qr-item-text-color', styles.itemTextColor || Constants.DEFAULT_MENU_STYLES.itemTextColor);
+    document.documentElement.style.setProperty('--qr-title-color', styles.titleColor || Constants.DEFAULT_MENU_STYLES.titleColor);
+    document.documentElement.style.setProperty('--qr-title-border-color', styles.titleBorderColor || Constants.DEFAULT_MENU_STYLES.titleBorderColor);
+    document.documentElement.style.setProperty('--qr-empty-text-color', styles.emptyTextColor || Constants.DEFAULT_MENU_STYLES.emptyTextColor);
+    document.documentElement.style.setProperty('--qr-menu-bg-color', styles.menuBgColor || Constants.DEFAULT_MENU_STYLES.menuBgColor);
+    document.documentElement.style.setProperty('--qr-menu-border-color', styles.menuBorderColor || Constants.DEFAULT_MENU_STYLES.menuBorderColor);
 }
 
 /**
  * 辅助函数 - hex转rgba
  */
 function hexToRgba(hex, opacity) {
-    // 改进：处理无效输入
+    // 默认颜色处理
     if (!hex || !/^#[0-9A-F]{6}$/i.test(hex)) {
-        hex = '#3c3c3c'; // Default to gray if hex is invalid
-        console.warn(`Invalid hex color: ${hex}. Using default.`);
+        console.warn(`[${Constants.EXTENSION_NAME} Style Util] Invalid hex color provided: '${hex}'. Using default #3c3c3c.`);
+        hex = '#3c3c3c'; // Default to dark grey if hex is invalid
     }
-    opacity = (opacity !== undefined && !isNaN(parseFloat(opacity))) ? parseFloat(opacity) : 0.7; // Default opacity
+    // 默认透明度处理
+    const validOpacity = (opacity !== null && opacity !== undefined && !isNaN(opacity) && opacity >= 0 && opacity <= 1) ? Number(opacity) : 0.7;
 
     hex = hex.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    return `rgba(${r}, ${g}, ${b}, ${validOpacity})`;
 }
 
 /**
- * 辅助函数 - rgba转hex (忽略透明度)
+ * 辅助函数 - rgba转hex
  */
 function rgbaToHex(rgba) {
     if (!rgba || typeof rgba !== 'string') {
         return '#000000'; // Default black
     }
+    // 匹配 rgba(r, g, b, a) 或 rgb(r, g, b)
     const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/);
     if (!match) {
-        return rgba.startsWith('#') ? rgba.substring(0, 7) : '#000000'; // Return if already hex or default black
+        // If it's already a valid hex, return it, otherwise default black
+        if (/^#[0-9A-F]{6}$/i.test(rgba)) {
+            return rgba.toUpperCase();
+        }
+        console.warn(`[${Constants.EXTENSION_NAME} Style Util] Could not parse RGBA: '${rgba}'. Returning default #000000.`);
+        return '#000000';
     }
     const r = parseInt(match[1]);
     const g = parseInt(match[2]);
     const b = parseInt(match[3]);
-    // Ensure values are within 0-255
-    const toHex = (c) => ('0' + Math.max(0, Math.min(255, c)).toString(16)).slice(-2);
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    // Ensure values are within 0-255 range
+    const hexR = Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0');
+    const hexG = Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0');
+    const hexB = Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0');
+    return `#${hexR}${hexG}${hexB}`.toUpperCase();
 }
 
 /**
@@ -308,11 +409,12 @@ function getOpacityFromRgba(rgba) {
         return 1; // Default opaque
     }
     const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/);
-    if (!match || match[4] === undefined) { // Check if opacity value exists
-        return 1; // Default opaque if alpha channel is missing
-    }
+    // If no alpha value is found (rgb format or invalid), default to 1
+    if (!match || match[4] === undefined) return 1;
     const opacity = parseFloat(match[4]);
-    return isNaN(opacity) ? 1 : Math.max(0, Math.min(1, opacity)); // Clamp between 0 and 1
+    // Ensure opacity is within 0-1 range and is a valid number
+    if (isNaN(opacity)) return 1;
+    return Math.max(0, Math.min(1, opacity));
 }
 
 /**
@@ -320,167 +422,106 @@ function getOpacityFromRgba(rgba) {
  */
 function setupColorPickerSync() {
     document.querySelectorAll('.qr-color-picker').forEach(picker => {
-        const textId = picker.id.replace('-picker', '-text'); // More robust ID derivation
+        const textId = picker.id.replace('-picker', '-text'); // Derive text input ID
         const textInput = document.getElementById(textId);
         if (!textInput) return;
 
-        // Initialize text input from picker
-        textInput.value = picker.value.toUpperCase();
+        // Initialize text input with current picker value
+        try {
+             textInput.value = picker.value.toUpperCase();
+        } catch (e) {
+             console.warn(`[${Constants.EXTENSION_NAME} Style Panel] Could not initialize text input for picker #${picker.id}: ${e}`);
+        }
 
-        // Picker changes -> Update text input
+        // Picker changes -> update text input
         picker.addEventListener('input', () => {
             textInput.value = picker.value.toUpperCase();
         });
 
-        // Text input changes -> Update picker (if valid hex)
+        // Text input changes -> update picker (if valid hex)
         textInput.addEventListener('input', () => {
-            let value = textInput.value.trim().toUpperCase();
-            if (!value.startsWith('#')) {
-                value = '#' + value;
-            }
-            if (/^#[0-9A-F]{6}$/i.test(value)) {
-                picker.value = value;
-                textInput.value = value; // Ensure consistent casing/format
+            const value = textInput.value.trim();
+            if (/^#?([0-9A-F]{6})$/i.test(value)) {
+                const color = value.startsWith('#') ? value : '#' + value;
+                picker.value = color;
+                // Ensure text input shows '#' and is uppercase
+                textInput.value = color.toUpperCase();
             }
         });
-        // Also validate on blur/change for better UX
-        textInput.addEventListener('change', () => {
-             let value = textInput.value.trim().toUpperCase();
-            if (!value.startsWith('#')) {
-                value = '#' + value;
-            }
-             if (/^#[0-9A-F]{6}$/i.test(value)) {
-                 picker.value = value;
-                 textInput.value = value;
+         // Also handle 'change' event for text input (e.g., when losing focus)
+         textInput.addEventListener('change', () => {
+             const value = textInput.value.trim();
+             if (/^#?([0-9A-F]{6})$/i.test(value)) {
+                 const color = value.startsWith('#') ? value : '#' + value;
+                 picker.value = color;
+                 textInput.value = color.toUpperCase();
              } else {
-                 // Revert to picker's current value if text input is invalid
+                 // If invalid, revert text input to picker's current value
                  textInput.value = picker.value.toUpperCase();
              }
-        });
+         });
     });
 }
-
-/**
- * 处理文件上传并更新设置
- * @param {Event} event
- */
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Optional: Check file size or type here if needed
-    // const maxSize = 500 * 1024; // 500 KB limit example
-    // if (file.size > maxSize) { alert('文件过大!'); return; }
-    // if (!['image/png', 'image/jpeg', 'image/svg+xml', 'image/gif'].includes(file.type)) { alert('不支持的文件类型!'); return; }
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const customIconUrlInput = document.getElementById(Constants.ID_CUSTOM_ICON_URL);
-        if (customIconUrlInput) {
-            const base64Result = e.target.result;
-            customIconUrlInput.value = base64Result; // Display base64 string
-
-            // Manually trigger an 'input' event so handleSettingsChange picks it up
-            const inputEvent = new Event('input', { bubbles: true, cancelable: true });
-            customIconUrlInput.dispatchEvent(inputEvent);
-        }
-    };
-    reader.onerror = function(e) {
-        console.error(`[${Constants.EXTENSION_NAME}] Error reading file:`, e);
-        alert('读取文件时出错。');
-    };
-    reader.readAsDataURL(file); // Read file as Base64
-}
-
 
 /**
  * Sets up all event listeners for the plugin.
  */
 export function setupEventListeners() {
-    const {
-        rocketButton,
-        settingsDropdown,
-        iconTypeDropdown,
-        customIconUrl,
-        colorMatchCheckbox,
-        menu // Get the menu element reference
-    } = sharedState.domElements;
+    // Rocket button is fetched in initializePlugin and stored in sharedState
+    const rocketButton = sharedState.domElements.rocketButton;
 
-    // --- Core Menu Interaction ---
+    // 主要按钮和菜单外部点击监听
     rocketButton?.addEventListener('click', handleRocketButtonClick);
-    document.addEventListener('click', handleOutsideClick);
+    // Use capture phase for outside click to potentially handle events stopped by other listeners
+    document.addEventListener('click', handleOutsideClick, true);
 
-    // --- Quick Reply Item Clicks (Event Delegation on Menu) ---
-    if (menu) {
-        menu.addEventListener('click', (event) => {
-            // Find the closest ancestor button with the correct class
-            const targetButton = event.target.closest(`.${Constants.CLASS_ITEM}`);
-            // Ensure it's the button itself and has the necessary dataset type
-            if (targetButton && targetButton.matches(`.${Constants.CLASS_ITEM}`) && targetButton.dataset.type === 'quick-reply-item') {
-                // Call the unified handler, passing the button as currentTarget
-                handleQuickReplyClick({ currentTarget: targetButton });
-            }
-        });
-    } else {
-        console.error(`[${Constants.EXTENSION_NAME}] Menu element not found for setting up click delegation.`);
-    }
+    // --- 设置相关的监听器 (通过 ID 获取元素) ---
+    // Use IDs defined in Constants to get elements safely
+    const safeAddListener = (id, event, handler) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener(event, handler);
+        } else {
+            console.warn(`[${Constants.EXTENSION_NAME} Event Setup] Element not found: #${id}. Cannot add listener.`);
+        }
+    };
 
+    // Add listeners, calling handleSettingsChange from settings.js
+    safeAddListener(Constants.ID_SETTINGS_ENABLED_DROPDOWN, 'change', handleSettingsChange);
+    safeAddListener(Constants.ID_ICON_TYPE_DROPDOWN, 'change', handleSettingsChange);
+    safeAddListener(Constants.ID_CUSTOM_ICON_URL, 'input', handleSettingsChange);
+    safeAddListener(Constants.ID_CUSTOM_ICON_SIZE_INPUT, 'input', handleSettingsChange);
+    safeAddListener(Constants.ID_FA_ICON_CODE_INPUT, 'input', handleSettingsChange);
+    safeAddListener(Constants.ID_COLOR_MATCH_CHECKBOX, 'change', handleSettingsChange);
 
-    // --- Settings Panel Listeners ---
-    settingsDropdown?.addEventListener('change', handleSettingsChange);
-    iconTypeDropdown?.addEventListener('change', handleSettingsChange); // handleSettingsChange now handles icon preview updates indirectly
-    customIconUrl?.addEventListener('input', handleSettingsChange); // Use 'input' for immediate feedback
-    colorMatchCheckbox?.addEventListener('change', handleSettingsChange);
+    // File upload listener is set up in settings.js -> setupSettingsEventListeners
 
-    // --- Usage Panel ---
-    const usageButton = document.getElementById(Constants.ID_USAGE_BUTTON);
-    usageButton?.addEventListener('click', handleUsageButtonClick);
-    // The usage panel close button listener is now added dynamically when the panel is created in settings.js
+    // --- 其他按钮监听器 ---
+    safeAddListener(Constants.ID_USAGE_BUTTON, 'click', handleUsageButtonClick); // from settings.js
+    safeAddListener(`${Constants.ID_USAGE_PANEL}-close`, 'click', closeUsagePanel); // from settings.js
+    safeAddListener(Constants.ID_MENU_STYLE_BUTTON, 'click', handleMenuStyleButtonClick); // from this file
+    safeAddListener(`${Constants.ID_MENU_STYLE_PANEL}-close`, 'click', closeMenuStylePanel); // from this file
+    safeAddListener(`${Constants.ID_MENU_STYLE_PANEL}-apply`, 'click', applyMenuStyles); // from this file
+    safeAddListener(Constants.ID_RESET_STYLE_BUTTON, 'click', resetMenuStyles); // from this file
 
-    // --- Menu Style Panel ---
-    const menuStyleButton = document.getElementById(Constants.ID_MENU_STYLE_BUTTON);
-    menuStyleButton?.addEventListener('click', handleMenuStyleButtonClick);
+    // 不透明度滑块监听
+    safeAddListener('qr-item-opacity', 'input', function(e) {
+        const valueSpan = document.getElementById('qr-item-opacity-value');
+        if(valueSpan) valueSpan.textContent = e.target.value;
+    });
+    safeAddListener('qr-menu-opacity', 'input', function(e) {
+        const valueSpan = document.getElementById('qr-menu-opacity-value');
+        if(valueSpan) valueSpan.textContent = e.target.value;
+    });
 
-    const stylePanel = document.getElementById(Constants.ID_MENU_STYLE_PANEL);
-    if (stylePanel) {
-        const closeButton = stylePanel.querySelector(`#${Constants.ID_MENU_STYLE_PANEL}-close`);
-        closeButton?.addEventListener('click', closeMenuStylePanel);
+    // 设置颜色选择器与文本输入框同步 (需要在设置面板HTML创建后执行)
+    // Consider calling this after settings HTML is injected or using event delegation
+    // For now, call it here, assuming settings elements exist
+    setupColorPickerSync(); // from this file
 
-        const applyButton = stylePanel.querySelector(`#${Constants.ID_MENU_STYLE_PANEL}-apply`);
-        applyButton?.addEventListener('click', applyMenuStyles);
+    console.log(`[${Constants.EXTENSION_NAME}] Event listeners set up.`);
 
-        const resetButton = stylePanel.querySelector(`#${Constants.ID_RESET_STYLE_BUTTON}`); // Directly get reset button by ID
-        resetButton?.addEventListener('click', resetMenuStyles);
-
-        // Opacity Sliders
-        const itemOpacitySlider = stylePanel.querySelector('#qr-item-opacity');
-        itemOpacitySlider?.addEventListener('input', function() {
-            const valueDisplay = stylePanel.querySelector('#qr-item-opacity-value');
-            if(valueDisplay) valueDisplay.textContent = this.value;
-        });
-
-        const menuOpacitySlider = stylePanel.querySelector('#qr-menu-opacity');
-        menuOpacitySlider?.addEventListener('input', function() {
-             const valueDisplay = stylePanel.querySelector('#qr-menu-opacity-value');
-             if(valueDisplay) valueDisplay.textContent = this.value;
-        });
-
-        // Set up color picker synchronization within the style panel
-        setupColorPickerSync();
-    } else {
-         console.warn(`[${Constants.EXTENSION_NAME}] Menu style panel not found for setting up listeners.`);
-    }
-
-
-    // --- Custom Icon File Upload ---
-    const fileUploadInput = document.getElementById('icon-file-upload'); // Get the hidden file input
-    if (fileUploadInput) {
-        fileUploadInput.addEventListener('change', handleFileUpload);
-    }
-    // The "选择文件" button's click is handled by inline HTML onclick to trigger the hidden input.
-
-    // --- Save Settings Button ---
-    // The save button listener is now added dynamically in settings.js or triggered via window.quickReplyMenu.saveSettings
-
-    console.log(`[${Constants.EXTENSION_NAME}] All event listeners set up.`);
+    // Note: Click listeners for the actual quick reply items (CLASS_ITEM) are added dynamically
+    // in ui.js -> renderQuickReplies, using event delegation or direct attachment.
+    // The current implementation attaches directly in renderQuickReplies.
 }
