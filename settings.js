@@ -208,15 +208,15 @@ export function createSettingsHtml() {
         <div class="quick-reply-usage-content">
             <p><strong>该插件主要提供以下基本功能：</strong></p>
             <ul>
-                <li>通过点击发送按钮旁边的小图标，快速打开或关闭快捷回复菜单。</li>
-                <li>支持两种快捷回复类型："聊天快捷回复"（针对当前聊天）和"全局快捷回复"（适用于所有聊天），方便分类管理。</li>
+                <li>通过点击发送按钮旁边的小图标，快速打开或关闭快速回复菜单。</li>
+                <li>支持两种快速回复类型：“聊天快速回复”（针对当前聊天）和“全局快速回复”（适用于所有聊天），方便分类管理。而前端助手制作的QR会被合并到聊天快速回复中。</li>
             </ul>
 
             <p><strong>以下是关于插件的详细设置</strong></p>
 
             <p><strong>首先，在基本设置中，你可以：</strong></p>
             <ul>
-                <li>选择"启用"或"禁用"来控制插件的整体开关状态。</li>
+                <li>选择“启用”或“禁用”来控制插件的整体开关状态。</li>
                 <li>选择显示在发送按钮旁边的图标样式，可选项包括：
                     <ul>
                         <li>小火箭（默认）</li>
@@ -224,30 +224,30 @@ export function createSettingsHtml() {
                         <li>星月</li>
                         <li>五芒星</li>
                         <li>Font Awesome（使用HTML代码复制）</li> 
-                        <li>自定义图标（URL/SVG/上传，图片形状可自行裁剪）</li> 
+                        <li>自定义图标（catbox的URL链接/SVG代码/上传的图片，图片形状可自行裁剪）</li> 
                     </ul>
                 </li>
             </ul>
 
             <p><strong>其次，在图标设置部分：</strong></p>
             <ul>
-                <li>若选择"自定义图标"：
+                <li>若选择“自定义图标”：
                     <ul>
                         <li>可以通过输入图标的URL、base64编码或SVG代码来设置。</li>
                         <li>也可以点击"选择文件"上传本地图片。</li>
                         <li>旁边有一个数字输入框，可以调整图标在按钮上显示的大小（单位：像素）。</li>
                     </ul>
                 </li>
-                <li>若选择"Font Awesome"：
+                <li>若选择“Font Awesome”：
                     <ul>
                         <li>需要在一个文本框中输入完整的 Font Awesome 图标 HTML 代码（fontawesome.com），例如 <code><i class="fa-solid fa-camera"></i></code>。</li>
                         <li>图标的大小和颜色将尽量匹配按钮的样式。</li>
                     </ul>
                 </li>
-                <li>可以勾选"使用与发送按钮相匹配的颜色风格"，让图标颜色自动适配发送按钮的类别（主按钮/次按钮）。</li>
+                <li>可以勾选“使用与发送按钮相匹配的颜色风格”，让图标颜色自动适配发送按钮的类别（但也有可能匹配不上o(╥﹏╥)o）。</li>
             </ul>
 
-<p><strong>然后，你可以通过点击"菜单样式"按钮，来自定义快捷回复菜单的外观：</strong></p>
+<p><strong>然后，你可以通过点击"菜单样式"按钮，来自定义快速回复菜单的外观：</strong></p>
             <ul>
                 <li><strong>菜单项样式：</strong>
                     <ul>
@@ -263,7 +263,7 @@ export function createSettingsHtml() {
                 </li>
                 <li><strong>其他样式设置：</strong>
                     <ul>
-                        <li>设置无快捷回复项时提示文字的颜色。</li>
+                        <li>设置无快速回复项时提示文字的颜色。</li>
                         <li>设置整个菜单面板的背景颜色、透明度和边框颜色。</li>
                     </ul>
                 </li>
@@ -277,14 +277,14 @@ export function createSettingsHtml() {
         
             <p><strong>这里有一些使用这款插件的小技巧：</strong></p>
             <ul>
-                <li>点击菜单外部的任意区域可以关闭菜单。</li>
+                <li>可以点击QR助手的快速回复菜单的外部的任意区域直接关闭菜单。</li>
                 <li>你可以通过更改图标类型和颜色，使其更好地匹配你的界面主题。</li>
-                <li>对于经常在各种聊天中使用的回复，建议添加到"全局快速回复"中。</li>
-                <li>对于只在特定聊天场景下使用的回复，则更适合添加到"聊天快速回复"中。</li>
+                <li>可以直接上传图片、svg图标以及挂在图床上的链接作为按钮。</li>
             </ul>
 
             <p><strong>最后是关于数据保存：</strong></p>
-            <p>完成所有配置（包括图标和样式设置）后，记得点击"保存设置"按钮来手动保存，以确保你的设置不会丢失。Font Awesome 图标可以在官网 (fontawesome.com) 查找。</p>
+            <p>完成所有配置（包括图标和样式设置）后，记得点击“保存设置”按钮来手动保存，以确保你的设置不会丢失。Font Awesome 图标（酒馆就是使用的这家免费图标）可以在官网 (fontawesome.com) 查找。</p>
+            <p>有任何BUG、疑问或建议都欢迎反馈！</p>
         </div>
 
         <div style="text-align:center; margin-top:10px;">
