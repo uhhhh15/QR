@@ -46,6 +46,9 @@ export const ARIA_ROLE_MENUITEM = 'menuitem';
 export const ID_USAGE_BUTTON = `${EXTENSION_NAME}-usage-button`;
 export const ID_USAGE_PANEL = `${EXTENSION_NAME}-usage-panel`;
 
+export const ID_CUSTOM_ICON_SAVE = `${EXTENSION_NAME}-custom-icon-save`;
+export const ID_CUSTOM_ICON_SELECT = `${EXTENSION_NAME}-custom-icon-select`;
+
 // --- 默认图标选项 ---
 export const ICON_TYPES = {
     ROCKET: 'rocket',
