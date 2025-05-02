@@ -19,7 +19,8 @@ if (!window.extension_settings[Constants.EXTENSION_NAME]) {
         customIconSize: Constants.DEFAULT_CUSTOM_ICON_SIZE, 
         faIconCode: '',                                  
         matchButtonColors: true,
-        menuStyles: JSON.parse(JSON.stringify(Constants.DEFAULT_MENU_STYLES))
+        menuStyles: JSON.parse(JSON.stringify(Constants.DEFAULT_MENU_STYLES)),
+        savedCustomIcons: []
     };
 }
 
