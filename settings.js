@@ -209,14 +209,14 @@ export function createSettingsHtml() {
             <p><strong>该插件主要提供以下基本功能：</strong></p>
             <ul>
                 <li>通过点击发送按钮旁边的小图标，快速打开或关闭快速回复菜单。</li>
-                <li>支持两种快速回复类型：“聊天快速回复”（针对当前聊天）和“全局快速回复”（适用于所有聊天），方便分类管理。而前端助手制作的QR会被合并到聊天快速回复中。</li>
+                <li>支持两种快速回复类型："聊天快速回复"（针对当前聊天）和"全局快速回复"（适用于所有聊天），方便分类管理。而前端助手制作的QR会被合并到聊天快速回复中。</li>
             </ul>
 
             <p><strong>以下是关于插件的详细设置</strong></p>
 
             <p><strong>首先，在基本设置中，你可以：</strong></p>
             <ul>
-                <li>选择“启用”或“禁用”来控制插件的整体开关状态。</li>
+                <li>选择"启用"或"禁用"来控制插件的整体开关状态。</li>
                 <li>选择显示在发送按钮旁边的图标样式，可选项包括：
                     <ul>
                         <li>小火箭（默认）</li>
@@ -231,20 +231,20 @@ export function createSettingsHtml() {
 
             <p><strong>其次，在图标设置部分：</strong></p>
             <ul>
-                <li>若选择“自定义图标”：
+                <li>若选择"自定义图标"：
                     <ul>
                         <li>可以通过输入图标的URL、base64编码或SVG代码来设置。</li>
                         <li>也可以点击"选择文件"上传本地图片。</li>
                         <li>旁边有一个数字输入框，可以调整图标在按钮上显示的大小（单位：像素）。</li>
                     </ul>
                 </li>
-                <li>若选择“Font Awesome”：
+                <li>若选择"Font Awesome"：
                     <ul>
                         <li>需要在一个文本框中输入完整的 Font Awesome 图标 HTML 代码（fontawesome.com），例如 <code><i class="fa-solid fa-camera"></i></code>。</li>
                         <li>图标的大小和颜色将尽量匹配按钮的样式。</li>
                     </ul>
                 </li>
-                <li>可以勾选“使用与发送按钮相匹配的颜色风格”，让图标颜色自动适配发送按钮的类别（但也有可能匹配不上o(╥﹏╥)o）。</li>
+                <li>可以勾选"使用与发送按钮相匹配的颜色风格"，让图标颜色自动适配发送按钮的类别（但也有可能匹配不上o(╥﹏╥)o）。</li>
             </ul>
 
 <p><strong>然后，你可以通过点击"菜单样式"按钮，来自定义快速回复菜单的外观：</strong></p>
@@ -283,7 +283,7 @@ export function createSettingsHtml() {
             </ul>
 
             <p><strong>最后是关于数据保存：</strong></p>
-            <p>完成所有配置（包括图标和样式设置）后，记得点击“保存设置”按钮来手动保存，以确保你的设置不会丢失。Font Awesome 图标（酒馆就是使用的这家免费图标）可以在官网 (fontawesome.com) 查找。</p>
+            <p>完成所有配置（包括图标和样式设置）后，记得点击"保存设置"按钮来手动保存，以确保你的设置不会丢失。Font Awesome 图标（酒馆就是使用的这家免费图标）可以在官网 (fontawesome.com) 查找。</p>
             <p>有任何BUG、疑问或建议都欢迎反馈！</p>
         </div>
 
@@ -293,6 +293,45 @@ export function createSettingsHtml() {
             </button>
         </div>
     </div>
+    `;
+
+    // 在自定义图标的容器里添加保存按钮和选择下拉菜单
+    const customIconContainer = `
+        <div class="custom-icon-container" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- 第一行：URL和大小 -->
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="flex: 3;">
+                    <label>自定义图标URL:</label>
+                    <input type="text" id="${Constants.ID_CUSTOM_ICON_URL}" style="width: 100%;" placeholder="输入URL或上传图片">
+                </div>
+                <div style="flex: 1;">
+                    <label>图标大小:</label>
+                    <input type="number" id="${Constants.ID_CUSTOM_ICON_SIZE_INPUT}" min="16" max="40" style="width: 100%;" value="${Constants.DEFAULT_CUSTOM_ICON_SIZE}">
+                </div>
+            </div>
+            
+            <!-- 第二行：使用表格布局确保三个元素在一行 -->
+            <table style="width: 100%; border-collapse: separate; border-spacing: 10px 0;">
+                <tr>
+                    <td style="width: 1%; white-space: nowrap;">
+                        <label for="icon-file-upload" class="menu_button" style="display: inline-block; cursor: pointer; padding: 0 10px;">
+                            <i class="fa-solid fa-upload"></i> 上传图片
+                        </label>
+                        <input type="file" id="icon-file-upload" accept="image/*" style="display: none;">
+                    </td>
+                    <td style="width: 1%; white-space: nowrap;">
+                        <button id="${Constants.ID_CUSTOM_ICON_SAVE}" class="menu_button" style="padding: 0 10px;">
+                            <i class="fa-solid fa-save"></i> 保存
+                        </button>
+                    </td>
+                    <td>
+                        <select id="${Constants.ID_CUSTOM_ICON_SELECT}" class="transparent-select" style="width: 100%;">
+                            <option value="">-- 选择已保存图标 --</option>
+                        </select>
+                    </td>
+                </tr>
+            </table>
+        </div>
     `;
 
     return `
@@ -325,18 +364,7 @@ export function createSettingsHtml() {
                 </div>
 
                 <div class="flex-container flexGap5 custom-icon-container" style="display: none; margin-top:10px; align-items: center;">
-                    <label for="${Constants.ID_CUSTOM_ICON_URL}">自定义图标:</label>
-                    <div style="display:flex; flex-grow:1; gap:5px; align-items: center;">
-                        <input type="text" id="${Constants.ID_CUSTOM_ICON_URL}" class="text_pole" style="flex-grow:1;"
-                               placeholder="URL, base64, 或 SVG 代码" />
-                        <input type="number" id="${Constants.ID_CUSTOM_ICON_SIZE_INPUT}" class="text_pole" style="width: 60px;"
-                               min="10" max="50" step="1" placeholder="大小" title="图标大小 (像素)"> 
-                        <input type="file" id="icon-file-upload" accept="image/*, image/svg+xml" style="display:none" />
-                        <button class="menu_button" style="width:auto; padding:0 10px; flex-shrink: 0;"
-                                onclick="document.getElementById('icon-file-upload').click()">
-                            选择文件
-                        </button>
-                    </div>
+                    ${customIconContainer}
                 </div>
 
                 <div class="flex-container flexGap5 fa-icon-container" style="display: none; margin-top:10px;">
@@ -524,6 +552,18 @@ function saveSettings() {
 }
 
 /**
+ * 辅助函数，安全地添加事件监听器
+ */
+function safeAddListener(id, event, handler) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.addEventListener(event, handler);
+    } else {
+        console.warn(`[${Constants.EXTENSION_NAME} Settings] Element not found: #${id}. Cannot add listener.`);
+    }
+}
+
+/**
  * 设置事件监听器 (文件上传等)
  */
 export function setupSettingsEventListeners() {
@@ -545,7 +585,28 @@ export function setupSettingsEventListeners() {
     // 文件上传监听器
     const fileUpload = document.getElementById('icon-file-upload');
     if (fileUpload) {
-        fileUpload.addEventListener('change', handleFileUpload); // 使用下面的 handleFileUpload
+        fileUpload.addEventListener('change', handleFileUpload);
+    } else {
+        console.warn(`[${Constants.EXTENSION_NAME}] 文件上传输入框未找到 (#icon-file-upload)`);
+    }
+
+    // 上传按钮点击事件 - 如果使用了label+input方案，这部分可能不需要
+    const uploadButton = document.getElementById('custom-icon-upload');
+    if (uploadButton) {
+        uploadButton.addEventListener('click', () => {
+            // 查找或创建文件输入框
+            let fileInput = document.getElementById('icon-file-upload');
+            if (!fileInput) {
+                fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.id = 'icon-file-upload';
+                fileInput.accept = 'image/*';
+                fileInput.style.display = 'none';
+                document.body.appendChild(fileInput);
+                fileInput.addEventListener('change', handleFileUpload);
+            }
+            fileInput.click(); // 触发文件选择对话框
+        });
     }
 
     // 添加保存按钮监听器
@@ -580,6 +641,9 @@ export function setupSettingsEventListeners() {
              }
         });
     }
+
+    safeAddListener(Constants.ID_CUSTOM_ICON_SAVE, 'click', saveCustomIcon);
+    safeAddListener(Constants.ID_CUSTOM_ICON_SELECT, 'change', handleCustomIconSelect);
 }
 
 /**
@@ -691,5 +755,135 @@ export function loadAndApplySettings() {
     // 最后，调用统一的图标更新函数来应用初始图标
     updateIconDisplay();
 
+    // 在加载设置后刷新自定义图标选择下拉菜单
+    updateCustomIconSelect();
+
     console.log(`[${Constants.EXTENSION_NAME}] Settings loaded and applied to settings panel.`);
+}
+
+/**
+ * 保存当前自定义图标设置到列表
+ */
+function saveCustomIcon() {
+    const settings = window.extension_settings[Constants.EXTENSION_NAME];
+    const customIconUrl = document.getElementById(Constants.ID_CUSTOM_ICON_URL).value;
+    const customIconSize = parseInt(document.getElementById(Constants.ID_CUSTOM_ICON_SIZE_INPUT).value, 10);
+    
+    if (!customIconUrl.trim()) {
+        // 如果URL为空，显示错误提示
+        const saveStatus = document.getElementById('qr-save-status');
+        if (saveStatus) {
+            saveStatus.textContent = '请先输入图标URL或上传图片';
+            saveStatus.style.color = '#f44336';
+            setTimeout(() => { saveStatus.textContent = ''; }, 2000);
+        }
+        return;
+    }
+    
+    // 检查是否已存在该URL的保存，避免重复
+    if (!settings.savedCustomIcons) {
+        settings.savedCustomIcons = [];
+    }
+    
+    // 生成默认名称（使用URL的最后部分或时间戳）
+    let defaultName = '';
+    try {
+        const urlParts = customIconUrl.split('/');
+        defaultName = urlParts[urlParts.length - 1].substring(0, 20); // 取URL最后部分，最多20个字符
+        if (!defaultName) {
+            throw new Error('无效名称');
+        }
+    } catch (e) {
+        // 如果无法从URL提取名称，使用时间戳
+        defaultName = `图标_${new Date().getTime()}`;
+    }
+    
+    // 弹出重命名对话框
+    const iconName = prompt("请输入图标名称:", defaultName);
+    
+    // 如果用户取消了输入，则中止保存
+    if (iconName === null) return;
+    
+    // 保存图标数据
+    const iconData = {
+        id: `icon_${new Date().getTime()}`, // 唯一ID
+        name: iconName || defaultName, // 如果用户输入为空，使用默认名称
+        url: customIconUrl,
+        size: customIconSize
+    };
+    
+    settings.savedCustomIcons.push(iconData);
+    
+    // 刷新下拉选择菜单
+    updateCustomIconSelect();
+    
+    // 显示保存成功信息
+    const saveStatus = document.getElementById('qr-save-status');
+    if (saveStatus) {
+        saveStatus.textContent = `✓ 图标"${iconData.name}"已保存`;
+        saveStatus.style.color = '#4caf50';
+        setTimeout(() => { saveStatus.textContent = ''; }, 2000);
+    }
+}
+
+/**
+ * 更新自定义图标选择下拉菜单
+ */
+function updateCustomIconSelect() {
+    const settings = window.extension_settings[Constants.EXTENSION_NAME];
+    const selectElement = document.getElementById(Constants.ID_CUSTOM_ICON_SELECT);
+    
+    if (!selectElement || !settings.savedCustomIcons) return;
+    
+    // 清空当前选项（保留第一个默认选项）
+    while (selectElement.options.length > 1) {
+        selectElement.remove(1);
+    }
+    
+    // 添加已保存的图标选项
+    settings.savedCustomIcons.forEach(icon => {
+        const option = document.createElement('option');
+        option.value = icon.id;
+        option.textContent = icon.name;
+        selectElement.appendChild(option);
+    });
+}
+
+/**
+ * 选择并应用已保存的自定义图标
+ */
+function handleCustomIconSelect(event) {
+    const selectedId = event.target.value;
+    if (!selectedId) return; // 如果选择的是默认选项，则不处理
+    
+    const settings = window.extension_settings[Constants.EXTENSION_NAME];
+    if (!settings.savedCustomIcons) return;
+    
+    // 查找选中的图标数据
+    const selectedIcon = settings.savedCustomIcons.find(icon => icon.id === selectedId);
+    if (!selectedIcon) return;
+    
+    // 应用选中的图标设置
+    document.getElementById(Constants.ID_ICON_TYPE_DROPDOWN).value = Constants.ICON_TYPES.CUSTOM;
+    document.getElementById(Constants.ID_CUSTOM_ICON_URL).value = selectedIcon.url;
+    document.getElementById(Constants.ID_CUSTOM_ICON_SIZE_INPUT).value = selectedIcon.size;
+    
+    // 更新设置对象
+    settings.iconType = Constants.ICON_TYPES.CUSTOM;
+    settings.customIconUrl = selectedIcon.url;
+    settings.customIconSize = selectedIcon.size;
+    
+    // 更新显示
+    updateIconDisplay();
+    
+    // 重置选择下拉菜单到默认选项
+    event.target.value = '';
+    
+    // 提示用户需要保存全局设置
+    const saveStatus = document.getElementById('qr-save-status');
+    if (saveStatus) {
+        saveStatus.textContent = '图标已应用，请保存设置';
+        saveStatus.style.color = '#ff9800';
+        setTimeout(() => { saveStatus.textContent = ''; }, 2000);
+    }
 }
