@@ -443,3 +443,25 @@ body.qra-disabled #quick-reply-rocket-button {
     text-align: center;
     max-width: 120px;
 }
+
+/* 添加到style.css */
+.custom-icon-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#quick-reply-menu-custom-icon-select {
+    width: 150px;
+    margin-left: 5px;
+    height: 28px;
+    background-color: var(--bg1);
+    color: var(--grey0);
+    border: 1px solid var(--grey1);
+}
+
+#quick-reply-menu-custom-icon-save {
+    margin-left: 10px;
+    padding: 2px 8px;
+    height: 28px;
+}
