@@ -1,6 +1,7 @@
 /* 新规则：插件启用时，隐藏 #qr--bar 内的原始触发器和【不属于输入助手的】按钮容器 */
+/* 同时排除 #input_helper_toolbar（插件按钮） 和 #custom_buttons_container（脚本按钮） */
 body.qra-enabled #qr--bar > #qr--popoutTrigger,
-body.qra-enabled #qr--bar > .qr--buttons:not(#input_helper_toolbar) {
+body.qra-enabled #qr--bar > .qr--buttons:not(#input_helper_toolbar):not(#custom_buttons_container) {
     display: none !important;
 }
 
