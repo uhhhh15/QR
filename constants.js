@@ -55,7 +55,7 @@ export const ICON_TYPES = {
     COMMENT: 'comment',
     STAR: 'star',
     BOLT: 'bolt',
-    FONTAWESOME: 'fontawesome', // <-- 新增 FontAwesome 选项
+    FONTAWESOME: 'fontawesome',
     CUSTOM: 'custom'
 };
 
