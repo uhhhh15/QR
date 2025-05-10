@@ -102,36 +102,43 @@ export async function handleQuickReplyClick(event) {
         // --- JS Runner 按钮代理行为：模拟点击原始按钮 ---
         console.log(`[${Constants.EXTENSION_NAME} Debug] Clicked JS Runner proxy for label: "${label}". Attempting to find and click original button...`);
         try {
-            const jsRunnerButtonContainerId = 'TH-script-buttons'; // JS Runner 按钮容器的 ID
-            const jsRunnerButtonSelector = 'div.qr--button.menu_button.interactable'; // JS Runner 按钮的选择器
-            const container = document.getElementById(jsRunnerButtonContainerId);
+            // 根据之前的讨论，查找所有 JS-Slash-Runner 脚本的按钮组容器
+            // 使用 jQuery 选择器
+            const jsRunnerButtonContainers = $('#send_form #qr--bar .qr--buttons.th-button');
+            let originalButtonToClick = null;
 
-            if (container) {
-                console.log(`[${Constants.EXTENSION_NAME} Debug] Found JS Runner container: #${jsRunnerButtonContainerId}`);
-                const originalButtons = container.querySelectorAll(jsRunnerButtonSelector);
-                let originalButtonToClick = null;
+            if (jsRunnerButtonContainers.length > 0) {
+                 console.log(`[${Constants.EXTENSION_NAME} Debug] Found ${jsRunnerButtonContainers.length} JS Runner button containers. Searching for button with label "${label}"...`);
 
-                console.log(`[${Constants.EXTENSION_NAME} Debug] Searching for original button with label "${label}" among ${originalButtons.length} candidates...`);
-                // 遍历容器内所有匹配的按钮，找到文本内容精确匹配的那一个
-                for (const btn of originalButtons) {
-                    const btnLabel = btn.textContent?.trim();
-                    // console.log(`[${Constants.EXTENSION_NAME} Debug] Checking candidate button with label: "${btnLabel}"`); // Verbose log if needed
-                    if (btnLabel === label) {
-                        originalButtonToClick = btn;
-                        console.log(`[${Constants.EXTENSION_NAME} Debug] Found matching original JS Runner button.`);
-                        break; // 找到就停止遍历
+                // 遍历所有容器内的按钮，找到文本内容精确匹配的那一个
+                jsRunnerButtonContainers.each(function() {
+                    const container = $(this);
+                    const buttonsInContainer = container.find('.qr--button.menu_button.interactable');
+
+                    buttonsInContainer.each(function() {
+                        const btn = $(this);
+                        const btnLabel = btn.text()?.trim(); // 获取原始按钮的文本
+                        // console.log(`[${Constants.EXTENSION_NAME} Debug] Checking candidate button with label: "${btnLabel}"`); // Verbose log if needed
+                        if (btnLabel === label) {
+                            originalButtonToClick = btn[0]; // 获取原生 DOM 元素
+                            console.log(`[${Constants.EXTENSION_NAME} Debug] Found matching original JS Runner button.`);
+                            return false; // 停止遍历内部按钮
+                        }
+                    });
+                    if (originalButtonToClick) {
+                         return false; // 停止遍历容器
                     }
-                }
+                });
 
                 if (originalButtonToClick) {
                     console.log(`[${Constants.EXTENSION_NAME} Debug] Simulating click on original button:`, originalButtonToClick);
                     originalButtonToClick.click(); // <<< 模拟点击 >>>
                     console.log(`[${Constants.EXTENSION_NAME}] Click successfully simulated on original button for "${label}".`);
                 } else {
-                    console.error(`[${Constants.EXTENSION_NAME}] Could not find the original JS Runner button with label "${label}" in container #${jsRunnerButtonContainerId} to simulate click.`);
+                    console.error(`[${Constants.EXTENSION_NAME}] Could not find the original JS Runner button with label "${label}" in the DOM to simulate click.`);
                 }
             } else {
-                console.error(`[${Constants.EXTENSION_NAME}] Could not find JS Runner container #${jsRunnerButtonContainerId} to locate original button.`);
+                console.error(`[${Constants.EXTENSION_NAME}] No JS Runner button containers (.qr--buttons.th-button) found in the DOM.`);
             }
         } catch (error) {
             console.error(`[${Constants.EXTENSION_NAME}] Error simulating click on JS Runner button for "${label}":`, error);
@@ -360,7 +367,7 @@ export function updateMenuStylesUI() {
  */
 function hexToRgba(hex, opacity) {
     // 默认颜色处理
-    if (!hex || !/^#[0-9A-F]{6}$/i.test(hex)) {
+    if (!hex || typeof hex !== 'string' || !/^#[0-9A-F]{6}$/i.test(hex)) {
         console.warn(`[${Constants.EXTENSION_NAME} Style Util] Invalid hex color provided: '${hex}'. Using default #3c3c3c.`);
         hex = '#3c3c3c'; // Default to dark grey if hex is invalid
     }
