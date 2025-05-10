@@ -1,8 +1,7 @@
 // ui.js
 import * as Constants from './constants.js';
-import { fetchQuickReplies } from './api.js';
+import { fetchQuickReplies } from './api.js'; // fetchQuickReplies 现在从设置中获取数据
 import { sharedState } from './state.js';
-// No longer need extension_settings here directly
 
 // Removed updateButtonIconDisplay and updateIconDisplay from this file. Use settings.js version.
 
@@ -64,7 +63,7 @@ export function createMenuElement() {
     globalListContainer.setAttribute('aria-labelledby', `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`); // ARIA
 
     const globalTitle = document.createElement('div');
-    globalTitle.id = `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`; // ID for aria-labelledby
+    globalTitle.id = `${Constants.ID_GLOBAL_LIST_CONTAINer}-title`; // ID for aria-labelledby
     globalTitle.className = Constants.CLASS_LIST_TITLE;
     globalTitle.textContent = '全局快速回复';
 
@@ -84,8 +83,8 @@ export function createMenuElement() {
 
 /**
  * Creates a single quick reply item (button).
- * Adds data-is-standard attribute based on reply data.
- * @param {object} reply - The quick reply data { setName, label, message, isStandard }
+ * Adds data-is-standard and data-script-id attributes based on reply data.
+ * @param {object} reply - The quick reply data { setName, label, message, isStandard, scriptId?, source? }
  * @returns {HTMLButtonElement} The button element for the quick reply item.
  */
 export function createQuickReplyItem(reply) {
@@ -93,23 +92,28 @@ export function createQuickReplyItem(reply) {
     item.type = 'button'; // Explicitly set type
     item.className = Constants.CLASS_ITEM;
     item.setAttribute('role', Constants.ARIA_ROLE_MENUITEM);
-    item.dataset.setName = reply.setName; // Store data needed for trigger
-    item.dataset.label = reply.label;
 
-    // ***************************************************************
-    // --- 新增：添加 isStandard 数据属性，用于区分点击行为 ---
-    // dataset 属性值必须是字符串，所以显式转换布尔值
-    // 如果 reply.isStandard 是 false，则设置为 'false'；否则（包括 true 和 undefined），设置为 'true'
+    // 确保 label 存在且非空
+    item.dataset.label = reply.label?.trim() || '';
+
+    // isStandard: 'false' if explicitly false, otherwise 'true'
     item.dataset.isStandard = String(reply.isStandard === false ? false : true);
-    // ***************************************************************
 
-    // Tooltip showing full message or first 50 chars
-    // Use reply.message directly, api.js provides a default if needed
-    const tooltipMessage = reply.message || '(点击执行)'; // Fallback tooltip message if none provided
-    item.title = tooltipMessage.length > 50
-        ? `${reply.setName} > ${reply.label}:\n${tooltipMessage.slice(0, 50)}...`
-        : `${reply.setName} > ${reply.label}:\n${tooltipMessage}`;
-    item.textContent = reply.label; // Display label as button text
+    // 添加 setName 数据属性，对于标准QR是回复集名称，对于JS Runner可以是脚本名称或分类
+    item.dataset.setName = reply.setName || (reply.source === 'JSSlashRunner' ? 'JS脚本' : '未知回复集');
+
+    // 如果是非标准回复 (JS Runner)，添加 scriptId 数据属性
+    if (reply.isStandard === false && reply.scriptId) {
+        item.dataset.scriptId = reply.scriptId;
+    }
+
+    // Tooltip showing source/set > label and message
+    const sourceText = item.dataset.setName;
+    const tooltipMessage = reply.message || `(${reply.isStandard ? '标准回复' : 'JS脚本'})`; // Fallback tooltip message if none provided
+    item.title = `${sourceText} > ${item.dataset.label}:\n${tooltipMessage.length > 70 ? tooltipMessage.slice(0, 70) + "..." : tooltipMessage}`;
+
+    // Display label as button text
+    item.textContent = item.dataset.label;
 
     // Event listener will be added in renderQuickReplies where this is used
     // item.dataset.type = 'quick-reply-item'; // Could be used for event delegation if needed
@@ -136,11 +140,16 @@ export function renderQuickReplies(chatReplies, globalReplies) {
 
     // Helper function to create and append item with listener
     const addItem = (container, reply) => {
-        const item = createQuickReplyItem(reply); // createQuickReplyItem now adds data-is-standard
+        // 确保 reply 对象和 label 存在
+        if (!reply || !reply.label || reply.label.trim() === "") {
+             console.warn(`[${Constants.EXTENSION_NAME}] Skipping invalid quick reply data:`, reply);
+             return;
+        }
+        const item = createQuickReplyItem(reply); // createQuickReplyItem now adds necessary data attributes
         // Attach the single click handler from events.js (exposed via window.quickReplyMenu)
         item.addEventListener('click', function(event) {
             if (window.quickReplyMenu && window.quickReplyMenu.handleQuickReplyClick) {
-                // The handler in events.js will read data-is-standard and decide the action
+                // The handler in events.js will read data attributes and decide the action
                 window.quickReplyMenu.handleQuickReplyClick(event);
             } else {
                 console.error(`[${Constants.EXTENSION_NAME}] handleQuickReplyClick not found on window.quickReplyMenu`);
@@ -153,7 +162,7 @@ export function renderQuickReplies(chatReplies, globalReplies) {
     if (chatReplies && chatReplies.length > 0) {
         chatReplies.forEach(reply => addItem(chatItemsContainer, reply));
     } else {
-        chatItemsContainer.appendChild(createEmptyPlaceholder('没有可用的聊天快速回复或脚本'));
+        chatItemsContainer.appendChild(createEmptyPlaceholder('没有可用的聊天快速回复或脚本按钮'));
     }
 
     // Render global replies or placeholder (standard only)
