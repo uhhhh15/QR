@@ -2,8 +2,10 @@
 import * as Constants from './constants.js';
 import { sharedState, setMenuVisible } from './state.js';
 import { updateMenuVisibilityUI } from './ui.js';
-import { triggerQuickReply } from './api.js'; // triggerQuickReply 只用于标准回复
+// 从 api.js 导入 triggerQuickReply 和新增的 triggerJsRunnerScript
+import { triggerQuickReply, triggerJsRunnerScript } from './api.js';
 // 导入 settings.js 中的函数用于处理设置变化和UI更新
+// handleSettingsChange, handleUsageButtonClick, closeUsagePanel, updateIconDisplay 都在 settings.js 中定义和导出
 import { handleSettingsChange, handleUsageButtonClick, closeUsagePanel, updateIconDisplay } from './settings.js';
 // 导入 index.js 的设置对象 (用于样式函数)
 import { extension_settings } from './index.js'; // Assuming index.js exports extension_settings
@@ -63,88 +65,55 @@ export function handleOutsideClick(event) {
  * Handles clicks on individual quick reply items (buttons).
  * Reads data attributes.
  * If it's a standard reply, triggers the API call.
- * If it's a JS Runner proxy, simulates a click on the original button.
+ * If it's a JS Runner proxy, triggers the JS Runner script via event.
  * @param {Event} event The click event on the button.
  */
 export async function handleQuickReplyClick(event) {
     const button = event.currentTarget; // 获取被点击的菜单项按钮
-    const setName = button.dataset.setName;
     const label = button.dataset.label;
-    // 读取 isStandard 标记，注意 dataset 的值是字符串
-    // 只有明确是 'false' 才认为是非标准；其他情况（'true' 或 属性不存在）都视为标准
-    const isStandard = button.dataset.isStandard !== 'false';
+    const isStandard = button.dataset.isStandard !== 'false'; // 'true' 或 undefined 为 true
 
-    if (!setName || !label) {
-        console.error(`[${Constants.EXTENSION_NAME}] Missing data-set-name or data-label on clicked item.`);
-        setMenuVisible(false); // Close menu on error
+    if (!label || label.trim() === "") {
+        console.error(`[${Constants.EXTENSION_NAME}] Missing valid data-label on clicked item.`);
+        setMenuVisible(false);
         updateMenuVisibilityUI();
         return;
     }
 
-    // 先关闭菜单，再执行操作 (视觉上更快响应)
+    // 先关闭菜单，再执行操作
     setMenuVisible(false);
     updateMenuVisibilityUI();
 
-    // ***************************************************************
-    // --- 修改：根据 isStandard 决定行为 ---
-    // ***************************************************************
     if (isStandard) {
         // --- 标准 Quick Reply v2 行为 ---
+        const setName = button.dataset.setName;
+        if (!setName) {
+            console.error(`[${Constants.EXTENSION_NAME}] Missing data-set-name for standard reply item "${label}".`);
+            return;
+        }
         console.log(`[${Constants.EXTENSION_NAME} Debug] Clicked standard reply: ${setName} / ${label}. Triggering API...`);
         try {
             // 调用 api.js 中的 triggerQuickReply
             await triggerQuickReply(setName, label);
         } catch (error) {
-            // triggerQuickReply 内部会记录错误日志
-            console.error(`[${Constants.EXTENSION_NAME}] Error occurred during triggerQuickReply for "${setName}.${label}".`);
+            console.error(`[${Constants.EXTENSION_NAME}] Error occurred during triggerQuickReply for "${setName}.${label}".`, error);
         }
     } else {
-        // --- JS Runner 按钮代理行为：模拟点击原始按钮 ---
-        console.log(`[${Constants.EXTENSION_NAME} Debug] Clicked JS Runner proxy for label: "${label}". Attempting to find and click original button...`);
+        // --- JS Runner 按钮代理行为：通过事件触发 ---
+        const scriptId = button.dataset.scriptId;
+        if (!scriptId) {
+            console.error(`[${Constants.EXTENSION_NAME}] Missing data-script-id for JS Runner proxy reply "${label}".`);
+            return;
+        }
+        console.log(`[${Constants.EXTENSION_NAME} Debug] Clicked JS Runner proxy for scriptId: "${scriptId}", label: "${label}". Triggering script...`);
         try {
-            // 根据之前的讨论，查找所有 JS-Slash-Runner 脚本的按钮组容器
-            // 使用 jQuery 选择器
-            const jsRunnerButtonContainers = $('#send_form #qr--bar .qr--buttons.th-button');
-            let originalButtonToClick = null;
-
-            if (jsRunnerButtonContainers.length > 0) {
-                 console.log(`[${Constants.EXTENSION_NAME} Debug] Found ${jsRunnerButtonContainers.length} JS Runner button containers. Searching for button with label "${label}"...`);
-
-                // 遍历所有容器内的按钮，找到文本内容精确匹配的那一个
-                jsRunnerButtonContainers.each(function() {
-                    const container = $(this);
-                    const buttonsInContainer = container.find('.qr--button.menu_button.interactable');
-
-                    buttonsInContainer.each(function() {
-                        const btn = $(this);
-                        const btnLabel = btn.text()?.trim(); // 获取原始按钮的文本
-                        // console.log(`[${Constants.EXTENSION_NAME} Debug] Checking candidate button with label: "${btnLabel}"`); // Verbose log if needed
-                        if (btnLabel === label) {
-                            originalButtonToClick = btn[0]; // 获取原生 DOM 元素
-                            console.log(`[${Constants.EXTENSION_NAME} Debug] Found matching original JS Runner button.`);
-                            return false; // 停止遍历内部按钮
-                        }
-                    });
-                    if (originalButtonToClick) {
-                         return false; // 停止遍历容器
-                    }
-                });
-
-                if (originalButtonToClick) {
-                    console.log(`[${Constants.EXTENSION_NAME} Debug] Simulating click on original button:`, originalButtonToClick);
-                    originalButtonToClick.click(); // <<< 模拟点击 >>>
-                    console.log(`[${Constants.EXTENSION_NAME}] Click successfully simulated on original button for "${label}".`);
-                } else {
-                    console.error(`[${Constants.EXTENSION_NAME}] Could not find the original JS Runner button with label "${label}" in the DOM to simulate click.`);
-                }
-            } else {
-                console.error(`[${Constants.EXTENSION_NAME}] No JS Runner button containers (.qr--buttons.th-button) found in the DOM.`);
-            }
+            // 调用 api.js 中的 triggerJsRunnerScript
+            await triggerJsRunnerScript(scriptId, label);
         } catch (error) {
-            console.error(`[${Constants.EXTENSION_NAME}] Error simulating click on JS Runner button for "${label}":`, error);
+            console.error(`[${Constants.EXTENSION_NAME}] Error triggering JS Runner script for scriptId "${scriptId}", label "${label}".`, error);
         }
     }
-    // --- 行为区分结束 ---
+    // 不再需要模拟点击DOM元素，直接触发JS-Slash-Runner监听的事件即可
 }
 
 /**
@@ -156,6 +125,12 @@ export function handleMenuStyleButtonClick() {
         // 载入当前样式到面板
         loadMenuStylesIntoPanel();
         stylePanel.style.display = 'block';
+         // 计算并设置面板位置...
+         const windowHeight = window.innerHeight;
+         const panelHeight = stylePanel.offsetHeight;
+         const topPosition = Math.max(50, (windowHeight - panelHeight) / 2); // 尝试垂直居中，最小top为50px
+         stylePanel.style.top = `${topPosition}px`;
+         stylePanel.style.transform = 'translateX(-50%)';
     }
 }
 
@@ -186,7 +161,7 @@ function loadMenuStylesIntoPanel() {
 
     const itemOpacity = styles.itemBgColor && typeof styles.itemBgColor === 'string' ? getOpacityFromRgba(styles.itemBgColor) : 0.7;
     safeSetValue('qr-item-opacity', itemOpacity);
-    safeSetText('qr-item-opacity-value', itemOpacity);
+    safeSetText('qr-item-opacity-value', itemOpacity.toFixed(1)); // 显示一位小数
 
     const itemTextColor = styles.itemTextColor || '#ffffff';
     safeSetValue('qr-item-color-picker', itemTextColor);
@@ -210,7 +185,7 @@ function loadMenuStylesIntoPanel() {
 
     const menuOpacity = styles.menuBgColor && typeof styles.menuBgColor === 'string' ? getOpacityFromRgba(styles.menuBgColor) : 0.85;
     safeSetValue('qr-menu-opacity', menuOpacity);
-    safeSetText('qr-menu-opacity-value', menuOpacity);
+    safeSetText('qr-menu-opacity-value', menuOpacity.toFixed(2)); // 显示两位小数
 
     const menuBorderColor = styles.menuBorderColor || '#555555';
     safeSetValue('qr-menu-border-picker', menuBorderColor);
@@ -265,7 +240,7 @@ export function applyMenuStyles() {
 
     // 获取各项颜色值和透明度
     const itemBgColorHex = getColorValue('qr-item-bgcolor-picker', '#3c3c3c');
-    const itemOpacity = safeGetValue('qr-item-opacity', 0.7);
+    const itemOpacity = parseFloat(safeGetValue('qr-item-opacity', 0.7)); // Ensure opacity is a number
     settings.menuStyles.itemBgColor = hexToRgba(itemBgColorHex, itemOpacity);
 
     settings.menuStyles.itemTextColor = getColorValue('qr-item-color-picker', '#ffffff');
@@ -274,7 +249,7 @@ export function applyMenuStyles() {
     settings.menuStyles.emptyTextColor = getColorValue('qr-empty-color-picker', '#666666');
 
     const menuBgColorHex = getColorValue('qr-menu-bgcolor-picker', '#000000');
-    const menuOpacity = safeGetValue('qr-menu-opacity', 0.85);
+    const menuOpacity = parseFloat(safeGetValue('qr-menu-opacity', 0.85)); // Ensure opacity is a number
     settings.menuStyles.menuBgColor = hexToRgba(menuBgColorHex, menuOpacity);
 
     settings.menuStyles.menuBorderColor = getColorValue('qr-menu-border-picker', '#555555');
@@ -333,7 +308,7 @@ export function resetMenuStyles() {
 export function updateMenuStylesUI() {
     // 检查 settings 对象是否存在
      if (!window.extension_settings || !window.extension_settings[Constants.EXTENSION_NAME]) {
-         // console.warn(`[${Constants.EXTENSION_NAME}] Settings object not found for applying styles. Using defaults.`);
+         console.warn(`[${Constants.EXTENSION_NAME}] Settings object not found for applying styles. Using defaults.`);
          // Apply default styles directly if settings are missing
          const defaults = Constants.DEFAULT_MENU_STYLES;
          document.documentElement.style.setProperty('--qr-item-bg-color', defaults.itemBgColor);
@@ -489,7 +464,7 @@ export function setupEventListeners() {
         if (element) {
             element.addEventListener(event, handler);
         } else {
-            console.warn(`[${Constants.EXTENSION_NAME} Event Setup] Element not found: #${id}. Cannot add listener.`);
+            // console.warn(`[${Constants.EXTENSION_NAME} Event Setup] Element not found: #${id}. Cannot add listener.`); // Suppress warnings for elements that might not exist initially
         }
     };
 
@@ -504,8 +479,11 @@ export function setupEventListeners() {
     // File upload listener is set up in settings.js -> setupSettingsEventListeners
 
     // --- 其他按钮监听器 ---
-    safeAddListener(Constants.ID_USAGE_BUTTON, 'click', handleUsageButtonClick); // from settings.js
-    safeAddListener(`${Constants.ID_USAGE_PANEL}-close`, 'click', closeUsagePanel); // from settings.js
+    // Usage button and panel listeners are set up in settings.js -> setupSettingsEventListeners
+    // safeAddListener(Constants.ID_USAGE_BUTTON, 'click', handleUsageButtonClick); // from settings.js
+    // safeAddListener(`${Constants.ID_USAGE_PANEL}-close`, 'click', closeUsagePanel); // from settings.js
+
+    // Style button and panel listeners
     safeAddListener(Constants.ID_MENU_STYLE_BUTTON, 'click', handleMenuStyleButtonClick); // from this file
     safeAddListener(`${Constants.ID_MENU_STYLE_PANEL}-close`, 'click', closeMenuStylePanel); // from this file
     safeAddListener(`${Constants.ID_MENU_STYLE_PANEL}-apply`, 'click', applyMenuStyles); // from this file
@@ -514,11 +492,11 @@ export function setupEventListeners() {
     // 不透明度滑块监听
     safeAddListener('qr-item-opacity', 'input', function(e) {
         const valueSpan = document.getElementById('qr-item-opacity-value');
-        if(valueSpan) valueSpan.textContent = e.target.value;
+        if(valueSpan) valueSpan.textContent = parseFloat(e.target.value).toFixed(1); // Format to 1 decimal place
     });
     safeAddListener('qr-menu-opacity', 'input', function(e) {
         const valueSpan = document.getElementById('qr-menu-opacity-value');
-        if(valueSpan) valueSpan.textContent = e.target.value;
+        if(valueSpan) valueSpan.textContent = parseFloat(e.target.value).toFixed(2); // Format to 2 decimal places
     });
 
     // 设置颜色选择器与文本输入框同步 (需要在设置面板HTML创建后执行)
@@ -531,4 +509,6 @@ export function setupEventListeners() {
     // Note: Click listeners for the actual quick reply items (CLASS_ITEM) are added dynamically
     // in ui.js -> renderQuickReplies, using event delegation or direct attachment.
     // The current implementation attaches directly in renderQuickReplies.
+    // The save button listener is also set up in settings.js -> setupSettingsEventListeners
+    // safeAddListener('qr-save-settings', 'click', window.quickReplyMenu.saveSettings); // Assuming it's exposed
 }
