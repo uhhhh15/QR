@@ -1,11 +1,11 @@
 {
     "display_name": "QR助手",
-    "loading_order": 13,
+    "loading_order": 8,
     "requires": [],
     "optional": [],
     "js": "index.js",
     "css": "style.css",
     "author": "uhhhh15",
-    "version": "1.8.0",
+    "version": "1.8.2",
     "homePage": ""
 }
