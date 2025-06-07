@@ -9,7 +9,8 @@ export const sharedState = {
         chatItemsContainer: null,
         globalItemsContainer: null,
         settingsDropdown: null,
-    }
+    },
+    currentSelectedSavedIconId: null
 };
 
 /**
