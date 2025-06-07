@@ -2,6 +2,7 @@
 import * as Constants from './constants.js';
 import { fetchQuickReplies } from './api.js'; // fetchQuickReplies 现在从设置中获取数据
 import { sharedState } from './state.js';
+import { applyWhitelistDOMChanges } from './whitelist.js';
 
 // Removed updateButtonIconDisplay and updateIconDisplay from this file. Use settings.js version.
 
@@ -63,7 +64,7 @@ export function createMenuElement() {
     globalListContainer.setAttribute('aria-labelledby', `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`); // ARIA
 
     const globalTitle = document.createElement('div');
-    globalTitle.id = `${Constants.ID_GLOBAL_LIST_CONTAINer}-title`; // ID for aria-labelledby
+    globalTitle.id = `${Constants.ID_GLOBAL_LIST_CONTAINER}-title`; // ID for aria-labelledby
     globalTitle.className = Constants.CLASS_LIST_TITLE;
     globalTitle.textContent = '全局快速回复';
 
@@ -225,6 +226,7 @@ export function updateMenuVisibilityUI() {
         menu.style.display = 'block';
         rocketButton.setAttribute('aria-expanded', 'true');
         rocketButton.classList.add('active'); // For visual feedback
+        applyWhitelistDOMChanges();
 
         // Optional: Focus management (consider accessibility implications)
         // const firstItem = menu.querySelector(`.${Constants.CLASS_ITEM}`);
@@ -235,5 +237,6 @@ export function updateMenuVisibilityUI() {
         menu.style.display = 'none';
         rocketButton.setAttribute('aria-expanded', 'false');
         rocketButton.classList.remove('active');
+        applyWhitelistDOMChanges();
     }
 }
