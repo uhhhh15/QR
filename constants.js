@@ -21,7 +21,12 @@ export const ID_CUSTOM_ICON_URL = `${EXTENSION_NAME}-custom-icon-url`;
 export const ID_CUSTOM_ICON_SIZE_INPUT = `${EXTENSION_NAME}-custom-icon-size`;
 export const ID_FA_ICON_CODE_INPUT = `${EXTENSION_NAME}-fa-icon-code`;
 // --- 结束新增 ---
-export const ID_COLOR_MATCH_CHECKBOX = `${EXTENSION_NAME}-color-match`;
+
+// --- 新增功能相关ID ---
+export const ID_GLOBAL_ICON_SIZE_INPUT = `${EXTENSION_NAME}-global-icon-size`;
+export const ID_RESET_ICON_SIZE_BUTTON = `${EXTENSION_NAME}-reset-icon-size`;
+export const ID_DELETE_SAVED_ICON_BUTTON = `${EXTENSION_NAME}-delete-saved-icon`;
+// --- 结束新增ID ---
 
 // --- 菜单样式相关常量 ---
 export const ID_MENU_STYLE_BUTTON = `${EXTENSION_NAME}-menu-style-button`;
@@ -48,6 +53,14 @@ export const ID_USAGE_PANEL = `${EXTENSION_NAME}-usage-panel`;
 
 export const ID_CUSTOM_ICON_SAVE = `${EXTENSION_NAME}-custom-icon-save`;
 export const ID_CUSTOM_ICON_SELECT = `${EXTENSION_NAME}-custom-icon-select`;
+
+// --- 新增“白名单管理”弹窗相关
+export const ID_WHITELIST_BUTTON = `${EXTENSION_NAME}-whitelist-button`;
+export const ID_WHITELIST_PANEL = `${EXTENSION_NAME}-whitelist-panel`;
+
+// --- 自动伸缩功能相关ID ---
+export const ID_AUTO_SHRINK_CHECKBOX = `${EXTENSION_NAME}-auto-shrink-enabled`;
+export const ID_AUTO_SHRINK_STYLE_TAG = 'qrq-auto-shrink-style-tag';
 
 // --- 默认图标选项 ---
 export const ICON_TYPES = {
