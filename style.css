@@ -1,8 +1,13 @@
 /* 新规则：插件启用时，隐藏 #qr--bar 内的原始触发器和【不属于输入助手的】按钮容器 */
 /* 同时排除 #input_helper_toolbar（插件按钮） 和 #custom_buttons_container（脚本按钮） */
 body.qra-enabled #qr--bar > #qr--popoutTrigger,
-body.qra-enabled #qr--bar > .qr--buttons:not(#input_helper_toolbar):not(#custom_buttons_container) {
+body.qra-enabled #qr--bar .qr--buttons:not(#input_helper_toolbar):not(#custom_buttons_container):not(.qrq-whitelisted-original) {
     display: none !important;
+}
+
+/* 白名单里的原生容器一律强制显示 */
+body.qra-enabled #qr--bar .qr--buttons.qrq-whitelisted-original {
+    display: flex !important;
 }
 
 /* 插件禁用时显示原始快速回复栏 */
@@ -83,20 +88,6 @@ body.qra-disabled #quick-reply-rocket-button {
     max-width: 120px !important;
 }
 
-/* 复选框和标签对齐 */
-.quick-reply-settings-row:has(#quick-reply-menu-color-match-checkbox) { /* 注意 ID 可能根据 constants.js 变化 */
-    display: flex;
-    align-items: center;
-}
-.quick-reply-settings-row:has(#quick-reply-menu-color-match-checkbox) label {
-    min-width: 0;
-    margin: 0;
-    text-align: left; /* 恢复左对齐 */
-}
-#quick-reply-menu-color-match-checkbox { /* 注意 ID 可能根据 constants.js 变化 */
-    margin-right: 5px;
-    vertical-align: middle;
-}
 
 /* --- 自定义图标和 Font Awesome 输入容器 --- */
 .custom-icon-container,
@@ -190,7 +181,9 @@ body.qra-disabled #quick-reply-rocket-button {
 }
 
 .quick-reply-item:hover {
-    background-color: rgba(100, 100, 100, 0.9);
+    background-color: var(--qr-item-hover-bg-color, #eee);
+    /* 可选：加一点阴影或高亮边框 */
+    /* box-shadow: 0 2px 8px rgba(38,215,174,0.10); */
 }
 
 /* 滚动条样式 */
@@ -424,27 +417,6 @@ body.qra-disabled #quick-reply-rocket-button {
     white-space: nowrap;
 }
 
-/* 图标预览弹窗内的图标样式 (如果使用) */
-#quick-reply-icon-preview-display {
-    font-size: 24px;
-    width: 50px;
-    height: 50px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0 auto;
-    background-color: rgba(0, 0, 0, 0.3);
-    border-radius: 6px;
-}
-
-/* 图标预览弹窗中的文本样式 (如果使用) */
-#quick-reply-icon-preview-display span {
-    font-size: 14px;
-    color: var(--text-color, #ccc);
-    text-align: center;
-    max-width: 120px;
-}
-
 /* 添加到style.css */
 .custom-icon-container {
     display: flex;
@@ -462,7 +434,166 @@ body.qra-disabled #quick-reply-rocket-button {
 }
 
 #quick-reply-menu-custom-icon-save {
-    margin-left: 10px;
+    margin-left: 0;
     padding: 2px 8px;
     height: 28px;
+}
+
+/* --- 精美白名单管理UI --- */
+.qr-whitelist-panel {
+    display: none;
+    position: fixed;
+    left: 50%;
+    top: 12%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    background: linear-gradient(135deg, #23243a 0%, #2e3350 100%);
+    border-radius: 18px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    padding: 28px 32px 22px 32px;
+    width: 480px;
+    max-width: 95vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    color: #f3f6fa;
+    border: none;
+    backdrop-filter: blur(8px);
+    animation: fadeInScale 0.4s;
+}
+@keyframes fadeInScale {
+    from { opacity: 0; transform: translateX(-50%) scale(0.95);}
+    to   { opacity: 1; transform: translateX(-50%) scale(1);}
+}
+.qr-whitelist-panel h3 {
+    font-size: 1.5em;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, #7f7fd5 0%, #86a8e7 50%, #91eac9 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.qr-whitelist-panel .menu_button {
+    background: linear-gradient(90deg, #7f7fd5 0%, #86a8e7 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 18px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(100,120,255,0.10);
+    transition: background 0.2s, transform 0.15s;
+}
+.qr-whitelist-panel .menu_button:hover {
+    background: linear-gradient(90deg, #91eac9 0%, #7f7fd5 100%);
+    transform: translateY(-2px) scale(1.04);
+}
+
+.qr-whitelist-panel label {
+    font-size: 1em;
+    color: #b6c3e0;
+    margin-bottom: 6px;
+    display: block;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+.qrq-whitelist-list {
+    width: 100%;
+    height: 220px;
+    overflow-y: auto;
+    border-radius: 12px;
+    padding: 8px 6px;
+    background: rgba(255,255,255,0.08);
+    box-shadow: 0 2px 8px rgba(100,120,255,0.08) inset;
+    margin-bottom: 0;
+    border: 1.5px solid rgba(130,150,255,0.18);
+    transition: box-shadow 0.2s;
+}
+
+.qrq-whitelist-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    margin-bottom: 7px;
+    background: rgba(130,150,255,0.13);
+    color: #f3f6fa;
+    border-radius: 7px;
+    font-size: 1em;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(100,120,255,0.07);
+    border: 1px solid transparent;
+    transition: background 0.18s, color 0.18s, border 0.18s;
+    user-select: none;
+}
+.qrq-whitelist-item.qr-item::before,
+.qrq-whitelist-item.jsr-item::before {
+    display: inline-block;
+    width: 1.5em;         /* 固定宽度，保证对齐 */
+    text-align: center;   /* 图标居中 */
+    margin-right: 6px;
+    font-size: 1em;
+    opacity: 0.85;
+    flex-shrink: 0;       /* 防止被压缩 */
+}
+.qrq-whitelist-item.qr-item::before {
+    content: "★";
+    color: #91eac9;
+}
+.qrq-whitelist-item.jsr-item::before {
+    content: "🌙";
+    color: #ffd700;
+}
+.qrq-whitelist-item:hover {
+    background: linear-gradient(90deg, #86a8e7 0%, #91eac9 100%);
+    color: #23243a;
+    border: 1px solid #91eac9;
+}
+
+#qrq-whitelist-save-status {
+    text-align: center;
+    color: #91eac9;
+    height: 22px;
+    margin-top: 10px;
+    font-size: 1em;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.qr-whitelist-panel > p {
+    color: #b6c3e0;
+    font-size: 0.98em;
+    margin-bottom: 16px;
+}
+
+.qr-whitelist-panel > div[style*="display:flex"] {
+    gap: 18px !important;
+}
+
+.qr-whitelist-panel label {
+    margin-bottom: 4px;
+}
+
+@media (max-width: 600px) {
+    .qr-whitelist-panel {
+        padding: 12px 4vw 10px 4vw;
+        width: 98vw;
+    }
+    .qrq-whitelist-list {
+        height: 150px;
+    }
+}
+
+.qrq-whitelist-empty-tip {
+    color: #b6c3e0;
+    font-size: 0.98em;
+    text-align: center;
+    padding: 18px 6px;
+    font-style: italic;
+    opacity: 0.85;
+    pointer-events: none;
+    user-select: none;
 }
