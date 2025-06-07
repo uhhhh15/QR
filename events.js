@@ -1,4 +1,5 @@
-// events.js
+// events_new.js (Final Verified Version)
+
 import * as Constants from './constants.js';
 import { sharedState, setMenuVisible } from './state.js';
 import { updateMenuVisibilityUI } from './ui.js';
@@ -6,7 +7,11 @@ import { updateMenuVisibilityUI } from './ui.js';
 import { triggerQuickReply, triggerJsRunnerScript } from './api.js';
 // 导入 settings.js 中的函数用于处理设置变化和UI更新
 // handleSettingsChange, handleUsageButtonClick, closeUsagePanel, updateIconDisplay 都在 settings.js 中定义和导出
-import { handleSettingsChange, handleUsageButtonClick, closeUsagePanel, updateIconDisplay } from './settings.js';
+// --- 更改开始：新增导入 closeWhitelistPanel ---
+import { handleSettingsChange, handleUsageButtonClick, closeUsagePanel, updateIconDisplay, closeWhitelistPanel } from './settings.js';
+// --- 更改结束 ---
+// 新增：保存设置，用于样式面板里 apply/reset 后立即持久化
+import { saveSettings } from './settings.js';
 // 导入 index.js 的设置对象 (用于样式函数)
 import { extension_settings } from './index.js'; // Assuming index.js exports extension_settings
 
@@ -29,6 +34,10 @@ export function handleOutsideClick(event) {
     const usagePanel = document.getElementById(Constants.ID_USAGE_PANEL);
     const styleButton = document.getElementById(Constants.ID_MENU_STYLE_BUTTON);
     const usageButton = document.getElementById(Constants.ID_USAGE_BUTTON);
+    // --- 更改开始：获取白名单面板及其触发按钮 ---
+    const whitelistPanel = document.getElementById(Constants.ID_WHITELIST_PANEL);
+    const whitelistButton = document.getElementById(Constants.ID_WHITELIST_BUTTON);
+    // --- 更改结束 ---
 
     // Close main menu if click is outside menu and its trigger button
     if (sharedState.menuVisible &&
@@ -58,6 +67,16 @@ export function handleOutsideClick(event) {
        ) {
         closeUsagePanel(); // Use the specific close function from settings.js
     }
+
+    // --- 更改开始：增加对白名单面板的外部点击处理 ---
+    if (whitelistPanel && whitelistPanel.style.display === 'block' &&
+        !whitelistPanel.contains(event.target) &&
+        event.target !== whitelistButton &&
+        !whitelistButton?.contains(event.target)
+       ) {
+        closeWhitelistPanel(); //调用从 settings.js 导入的关闭函数（它现在包含保存逻辑）
+    }
+    // --- 更改结束 ---
 }
 
 
@@ -260,18 +279,19 @@ export function applyMenuStyles() {
     // 应用样式到菜单
     updateMenuStylesUI();
 
-    // 关闭面板
     closeMenuStylePanel();
+
+    // 自动保存：样式面板 apply 后立即持久化
+    saveSettings();
 
     // 提示用户需要保存设置
     console.log(`[${Constants.EXTENSION_NAME}] Menu styles applied. Remember to save extension settings.`);
-    // Optionally, show a temporary message near the save button
-     const saveStatus = document.getElementById('qr-save-status');
-     if (saveStatus) {
-        saveStatus.textContent = '样式已应用，请保存设置';
-        saveStatus.style.color = '#ff9800'; // Orange warning color
-        setTimeout(() => { if(saveStatus.textContent === '样式已应用，请保存设置') saveStatus.textContent = ''; }, 3000);
-     }
+    const saveStatus = document.getElementById('qr-save-status');
+    if (saveStatus) {
+        saveStatus.textContent = '✓ 样式已应用并已自动保存';
+        saveStatus.style.color = '#4caf50';
+        setTimeout(() => { if(saveStatus.textContent === '✓ 样式已应用并已自动保存') saveStatus.textContent = ''; }, 3000);
+    }
 }
 
 /**
@@ -296,10 +316,13 @@ export function resetMenuStyles() {
     console.log(`[${Constants.EXTENSION_NAME}] Menu styles reset to default. Remember to save extension settings.`);
      const saveStatus = document.getElementById('qr-save-status');
      if (saveStatus) {
-        saveStatus.textContent = '样式已重置，请保存设置';
+        saveStatus.textContent = '样式已重置';
         saveStatus.style.color = '#ff9800'; // Orange warning color
-        setTimeout(() => { if(saveStatus.textContent === '样式已重置，请保存设置') saveStatus.textContent = ''; }, 3000);
+        setTimeout(() => { if(saveStatus.textContent === '样式已重置') saveStatus.textContent = ''; }, 3000);
      }
+
+    // 新增：保存设置，用于样式面板里 apply/reset 后立即持久化
+    saveSettings();
 }
 
 /**
@@ -335,6 +358,7 @@ export function updateMenuStylesUI() {
     document.documentElement.style.setProperty('--qr-empty-text-color', styles.emptyTextColor || Constants.DEFAULT_MENU_STYLES.emptyTextColor);
     document.documentElement.style.setProperty('--qr-menu-bg-color', styles.menuBgColor || Constants.DEFAULT_MENU_STYLES.menuBgColor);
     document.documentElement.style.setProperty('--qr-menu-border-color', styles.menuBorderColor || Constants.DEFAULT_MENU_STYLES.menuBorderColor);
+    document.documentElement.style.setProperty('--qr-item-hover-bg-color', styles.itemHoverBgColor || styles.itemBgColor || Constants.DEFAULT_MENU_STYLES.itemBgColor);
 }
 
 /**
@@ -473,8 +497,10 @@ export function setupEventListeners() {
     safeAddListener(Constants.ID_ICON_TYPE_DROPDOWN, 'change', handleSettingsChange);
     safeAddListener(Constants.ID_CUSTOM_ICON_URL, 'input', handleSettingsChange);
     safeAddListener(Constants.ID_CUSTOM_ICON_SIZE_INPUT, 'input', handleSettingsChange);
+    safeAddListener(Constants.ID_GLOBAL_ICON_SIZE_INPUT, 'input', handleSettingsChange);
     safeAddListener(Constants.ID_FA_ICON_CODE_INPUT, 'input', handleSettingsChange);
-    safeAddListener(Constants.ID_COLOR_MATCH_CHECKBOX, 'change', handleSettingsChange);
+    // This line is present in the uploaded original file and is correct.
+    safeAddListener(Constants.ID_AUTO_SHRINK_CHECKBOX, 'change', handleSettingsChange);
 
     // File upload listener is set up in settings.js -> setupSettingsEventListeners
 
@@ -512,3 +538,23 @@ export function setupEventListeners() {
     // The save button listener is also set up in settings.js -> setupSettingsEventListeners
     // safeAddListener('qr-save-settings', 'click', window.quickReplyMenu.saveSettings); // Assuming it's exposed
 }
+
+// 在settings面板关闭时自动保存一次 - 兜底策略
+function setupSettingsPanelCloseListener() {
+    // 给扩展设置抽屉的关闭按钮添加事件监听
+    const closeButton = document.querySelector('#extensions_settings .inline-drawer-header');
+    if (closeButton) {
+        closeButton.addEventListener('click', function() {
+            // 检查抽屉是否处于打开状态（即将要关闭）
+            const isOpen = closeButton.parentElement.classList.contains('open');
+            if (isOpen && typeof saveSettings === 'function') {
+                console.log(`[${Constants.EXTENSION_NAME}] 设置面板正在关闭，执行兜底保存`);
+                saveSettings();
+            }
+        });
+        console.log(`[${Constants.EXTENSION_NAME}] 已添加设置面板关闭事件监听器`);
+    }
+}
+
+// 然后在initializePlugin函数末尾调用
+setupSettingsPanelCloseListener();
