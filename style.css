@@ -1,26 +1,95 @@
-/* 新规则：插件启用时，隐藏 #qr--bar 内的原始触发器和【不属于输入助手的】按钮容器 */
-/* 同时排除 #input_helper_toolbar（插件按钮） 和 #custom_buttons_container（脚本按钮） */
-body.qra-enabled #qr--bar > #qr--popoutTrigger,
-body.qra-enabled #qr--bar .qr--buttons:not(#input_helper_toolbar):not(#custom_buttons_container):not(.qrq-whitelisted-original) {
+/* style.css */
+
+/* ==========================================
+   核心规则：显隐控制 (由 whitelist.js 动态添加/移除类)
+   ========================================== */
+
+/* 插件启用时，被JS标记为隐藏的元素 */
+body.qra-enabled .qrq-hidden-by-plugin {
     display: none !important;
 }
 
-/* 白名单里的原生容器一律强制显示 */
-body.qra-enabled #qr--bar .qr--buttons.qrq-whitelisted-original {
-    display: flex !important;
+/* 插件启用时，明确隐藏原生的 Quick Reply 弹出按钮触发器 */
+/* body.qra-enabled #qr--bar > #qr--popoutTrigger {
+    display: none !important;
+} */
+
+/* 
+   合并包裹器 Wrapper 本身：设置为 flex 容器 (对应 "合并QR" 模式)
+*/
+body.qra-enabled #qr--bar > .qr--buttons.qrq-wrapper-visible {
+    display: flex !important; 
+    flex-wrap: wrap; 
+    gap: 5px; /* 保持间距 */
+    align-items: center; /* 垂直居中 */
 }
 
-/* 插件禁用时显示原始快速回复栏 */
+/*
+   ★★★ 布局修复核心：display: contents ★★★
+   当白名单容器 (QR Set, JSR) 或受保护容器 (InputHelper) 位于 wrapper 内部时，
+   使用 display: contents 使容器在布局上消失，其子按钮成为 wrapper 的直接 flex 子项，实现无缝排列。
+*/
+body.qra-enabled .qrq-wrapper-visible > .qr--buttons.qrq-whitelisted-original,
+body.qra-enabled .qrq-wrapper-visible > div[id^="script_container_"].qrq-whitelisted-original,
+/* 同时处理受保护的输入助手容器 (如果它们在 wrapper 内部) */
+body.qra-enabled .qrq-wrapper-visible > #input_helper_toolbar,
+body.qra-enabled .qrq-wrapper-visible > #custom_buttons_container
+ {
+    display: contents !important; 
+}
+/* 独立的输入按钮 (id="input_回车_btn") 是 .qr--button, JS保护它们不被隐藏。
+   它们已经是按钮个体，原生样式会让它们作为 wrapper 的 flex 子项正确排列，无需 contents。 */
+
+
+/*
+    当白名单容器【不在】wrapper 内部时 (例如 ST 未开启 "合并QR")，
+    它们是 #qr--bar 的直接子元素，此时它们需要 display: flex 来显示内部按钮。
+    选择器：匹配 #qr--bar 的直接子元素(>)，且不是 wrapper 本身(:not)
+*/
+body.qra-enabled #qr--bar > .qr--buttons.qrq-whitelisted-original:not(.qrq-wrapper-visible),
+body.qra-enabled #qr--bar > div[id^="script_container_"].qrq-whitelisted-original {
+     display: flex !important;
+     gap: 5px; /* 容器间距 */
+      align-items: center;
+ }
+
+ /* 确保单个按钮 (如果被白名单，或用于兜底) 正确显示 */
+  body.qra-enabled .qr--button.qrq-whitelisted-original {
+       /* .qr--button 原生样式通常是 inline-flex 或 flex */
+      display: inline-flex !important; 
+      align-items: center; justify-content:center;
+  }
+
+
+/* ==========================================
+   插件状态控制
+   ========================================== */
+
+/* 插件禁用时，恢复 #qr--bar 的默认样式 */
 body.qra-disabled #qr--bar {
-    /* 恢复默认样式 */
     height: auto !important;
     overflow: visible !important;
 }
 
-/* 插件禁用时隐藏火箭按钮 */
+/* 插件禁用时，隐藏插件的火箭按钮 */
 body.qra-disabled #quick-reply-rocket-button {
     display: none !important;
 }
+
+/* 插件禁用时，【关键】确保恢复所有元素的默认 display */
+body.qra-disabled .qrq-hidden-by-plugin,
+body.qra-disabled .qrq-whitelisted-original, 
+body.qra-disabled .qrq-wrapper-visible,
+/* 显式恢复可能被 display:contents 影响的受保护容器 */
+ body.qra-disabled #input_helper_toolbar,
+ body.qra-disabled #custom_buttons_container
+ { 
+    display: initial !important; 
+}
+body.qra-disabled #qr--bar > #qr--popoutTrigger { display: initial !important; }
+
+
+/* === 以下为你原有的其他样式，保持不变 === */
 
 /* --- 快速回复按钮 --- */
 #quick-reply-rocket-button {
@@ -181,7 +250,7 @@ body.qra-disabled #quick-reply-rocket-button {
 }
 
 .quick-reply-item:hover {
-    background-color: var(--qr-item-hover-bg-color, #eee);
+    background-color: var(--qr-item-hover-bg-color, rgba(80, 80, 80, 0.85)); /* 使用变量 */
     /* 可选：加一点阴影或高亮边框 */
     /* box-shadow: 0 2px 8px rgba(38,215,174,0.10); */
 }
@@ -352,6 +421,8 @@ body.qra-disabled #quick-reply-rocket-button {
     --qr-empty-text-color: #666;
     --qr-menu-bg-color: rgba(0, 0, 0, 0.85);
     --qr-menu-border-color: #555;
+    /* 新增：定义item悬停背景色变量，方便统一修改 */
+    --qr-item-hover-bg-color: rgba(80, 80, 80, 0.85); /* 示例值，比默认项背景色稍亮或不同 */
 }
 
 /* 透明选择框样式 */
