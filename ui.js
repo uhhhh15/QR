@@ -208,6 +208,7 @@ export function updateMenuVisibilityUI() {
                  throw new Error("fetchQuickReplies did not return expected structure.");
              }
             renderQuickReplies(chat, global); // From this file (will render both types)
+            applyWhitelistDOMChanges();
         } catch (error) {
              console.error(`[${Constants.EXTENSION_NAME}] Error fetching or rendering replies:`, error);
              // Display an error message within the menu containers
