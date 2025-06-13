@@ -16,6 +16,14 @@ function isProtectedInputHelper(element) {
 
 // 辅助函数：判断一个元素是否为合并模式下的包裹容器
 function isCombinedWrapper(element, qrBarElement) {
+    // --- 核心修复：首先检查 "合并QR" 设置是否开启 ---
+    // 如果未开启，则不可能存在合并包裹器，直接返回 false。
+    const qrSettings = window.quickReplyApi?.settings?.config;
+    if (qrSettings?.isCombined !== true) {
+        return false;
+    }
+    // --- 修复结束 ---
+
      if (!element || !qrBarElement || element.parentElement !== qrBarElement) return false;
      if (!element.classList || !element.classList.contains('qr--buttons')) return false;
      if (element.id && (element.id === 'input_helper_toolbar' || element.id === 'custom_buttons_container')) return false;
@@ -24,8 +32,7 @@ function isCombinedWrapper(element, qrBarElement) {
      const hasInnerButtons = element.querySelector('.qr--button, .qr--buttons');
      // 通常 wrapper 没有ID，或者不是 script_container
       const isNotScript = !element.id || !element.id.startsWith('script_container_');
-      // 如果设置开启了 isCombined, 并且满足条件
-      const qrSettings = window.quickReplyApi?.settings?.config;
+      // 如果设置开启了 isCombined, 并且满足条件 (此处的 isCombined 检查现在是冗余的，但保留无害)
        if (qrSettings?.isCombined && isNotScript && hasInnerButtons) {
           // 检查它是否包含了其他 *非* input_helper 的 .qr--buttons 或 .qr--button
           const hasNonHelperContent = element.querySelector(':scope > .qr--buttons:not(#input_helper_toolbar):not(#custom_buttons_container), :scope > div[id^="script_container_"], :scope > .qr--button:not([id^="input_"])');
@@ -38,9 +45,8 @@ function isCombinedWrapper(element, qrBarElement) {
           // 必须包含非Helper内容，且不能只包含Helper
           if(hasNonHelperContent || !onlyContainsHelpers) return true;
        }
-      // 兜底：用于识别你最早 dom_1 结构 (无ID的qr--buttons且有子元素)
-      if (!element.id && hasInnerButtons) return true;
-
+      // 兜底逻辑已经被前面的 isCombined !== true 卫语句覆盖，不再需要单独的无条件兜底。
+      
      return false;
 }
 
