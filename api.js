@@ -1,12 +1,49 @@
-// api.js
+// api.js - 最终完整版
 import * as Constants from './constants.js';
 import { setMenuVisible } from './state.js';
 
 // JS-Slash-Runner 在 extension_settings 和角色扩展中使用的键名
-// 根据 JS-Slash-Runner 源码确定为 "TavernHelper"
 const JSR_SETTINGS_KEY = "TavernHelper";
 // JS-Slash-Runner 在角色扩展中存储脚本的键名
 const JSR_CHAR_EXTENSION_KEY = "TavernHelper_scripts";
+
+/**
+ * 辅助函数：将新的、包含文件夹的 JSR 脚本数据结构“拍平”，
+ * 转换成旧的、简单的脚本对象数组（兼容新旧版酒馆助手3.2.3版本）。
+ * @param {Array<object>} items - 从 JSR 设置中获取的原始脚本/文件夹列表。
+ * @returns {Array<object>} - 一个只包含纯脚本对象的扁平数组。
+ */
+function flattenJsrScripts(items) {
+    if (!items || !Array.isArray(items)) {
+        return [];
+    }
+
+    const flatScripts = [];
+
+    const processItem = (item) => {
+        // Case 1: 这是一个文件夹，递归处理其内部的脚本
+        if (item && item.type === 'folder' && Array.isArray(item.value)) {
+            // 文件夹内的脚本是纯粹的脚本对象，直接遍历
+            item.value.forEach(scriptInFolder => {
+                // 直接将文件夹内的脚本对象加入结果列表
+                flatScripts.push(scriptInFolder);
+            });
+        }
+        // Case 2: 这是一个顶层脚本，提取其 .value
+        else if (item && item.type === 'script' && item.value) {
+            flatScripts.push(item.value);
+        }
+        // Case 3: 兼容非常旧的、没有任何包装的扁平结构（以防万一）
+        else if (item && !item.type && item.id) {
+            flatScripts.push(item);
+        }
+    };
+
+    items.forEach(processItem);
+
+    return flatScripts;
+}
+
 
 /**
  * Fetches chat and global quick replies from the quickReplyApi.
@@ -117,7 +154,8 @@ export function fetchQuickReplies() {
 
         // 处理全局脚本
         const globalScriptTypeEnabled = jsRunnerSettings.script?.global_script_enabled !== false;
-        processScripts(jsRunnerSettings.script?.scriptsRepository, 'global', globalScriptTypeEnabled);
+        const flatGlobalScripts = flattenJsrScripts(jsRunnerSettings.script?.scriptsRepository);
+        processScripts(flatGlobalScripts, 'global', globalScriptTypeEnabled);
 
         // 【最终修正-B】直接使用 stContext.characterId，这是 this_chid 的实时引用
         const characterId = stContext.characterId;
@@ -125,14 +163,18 @@ export function fetchQuickReplies() {
         if (stContext.characters && typeof characterId !== 'undefined' && characterId !== null) {
             const currentChar = stContext.characters[characterId];
             if (currentChar && currentChar.avatar) {
-                const characterScriptsTypeEnabled = jsRunnerSettings.script?.characters_with_scripts_enabled !== false;
+                // 原代码中这行有误，characters_with_scripts_enabled 不存在
+                // const characterScriptsTypeEnabled = jsRunnerSettings.script?.characters_with_scripts_enabled !== false; 
                 const characterEnabledList = Array.isArray(jsRunnerSettings.script?.characters_with_scripts) ? jsRunnerSettings.script.characters_with_scripts : [];
                 const isCurrentCharEnabled = characterEnabledList.includes(currentChar.avatar);
-
-                if (characterScriptsTypeEnabled && isCurrentCharEnabled) {
+                
+                // 原代码中这行有误，characterScriptsTypeEnabled 永远是 true，应只判断 isCurrentCharEnabled
+                // if (characterScriptsTypeEnabled && isCurrentCharEnabled) {
+                if (isCurrentCharEnabled) {
                     // JSR 将角色脚本存在 character.data.extensions.TavernHelper_scripts
                     const characterScripts = currentChar.data?.extensions?.[JSR_CHAR_EXTENSION_KEY];
-                    processScripts(characterScripts, 'character', true);
+                    const flatCharacterScripts = flattenJsrScripts(characterScripts);
+                    processScripts(flatCharacterScripts, 'character', true);
                 }
             }
         }
