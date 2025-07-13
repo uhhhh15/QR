@@ -13,14 +13,6 @@ import { saveSettings } from './settings.js';
 // 导入 index.js 的设置对象 (用于样式函数)
 import { extension_settings } from './index.js'; // Assuming index.js exports extension_settings
 
-
-// --- 更改部分 ---
-// 用于快捷键功能的状态变量
-let lastCtrlPressTime = 0; // 变量名从 Space 改为 Ctrl，更清晰
-const DOUBLE_PRESS_THRESHOLD = 400; // 两次按键的毫秒间隔阈值，400ms比较舒适
-// --- 更改结束 ---
-
-
 /**
  * Handles clicks on the rocket button. Toggles menu visibility state and updates UI.
  */
@@ -141,38 +133,6 @@ export async function handleQuickReplyClick(event) {
     }
     // 不再需要模拟点击DOM元素，直接触发JS-Slash-Runner监听的事件即可
 }
-
-// --- 更改部分 ---
-/**
- * 处理全局键盘事件，用于快捷键操作。
- * @param {KeyboardEvent} event
- */
-export function handleKeyPress(event) {
-    // 快捷键：连续按两次'Ctrl'键
-    if (event.key === 'Control') {
-        const currentTime = new Date().getTime();
-        
-        // 检查与上次按键的时间差
-        if (currentTime - lastCtrlPressTime < DOUBLE_PRESS_THRESHOLD) {
-            // 判定为双击
-            console.log(`[${Constants.EXTENSION_NAME}] 检测到双击Ctrl快捷键，切换菜单。`);
-            
-            // 调用与点击按钮相同的函数来切换菜单
-            handleRocketButtonClick();
-            
-            // 阻止默认行为（如果有的话）
-            event.preventDefault();
-            
-            // 重置计时器，防止第三次按键也触发
-            lastCtrlPressTime = 0;
-        } else {
-            // 这是第一次按键，或者两次按键间隔太长
-            lastCtrlPressTime = currentTime;
-        }
-    }
-}
-// --- 更改结束 ---
-
 
 /**
  * 处理菜单样式按钮点击
@@ -520,13 +480,10 @@ export function setupEventListeners() {
     // Use capture phase for outside click to potentially handle events stopped by other listeners
     document.addEventListener('click', handleOutsideClick, true);
 
-    // --- 更改部分 ---
-    // 添加全局键盘快捷键监听
-    document.addEventListener('keydown', handleKeyPress);
-    // --- 更改结束 ---
 
     // --- 设置相关的监听器 (通过 ID 获取元素) ---
     // Use IDs defined in Constants to get elements safely
+    
     const safeAddListener = (id, event, handler) => {
         const element = document.getElementById(id);
         if (element) {
