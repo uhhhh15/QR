@@ -85,47 +85,35 @@ function processElement(element, whitelist, qrApi) {
 
     // 识别当前元素的ID，用于匹配白名单
     let containerIdForWhitelist = '';
-    let isIdentified = false; // ★ 标志，用于判断元素是否被成功识别
-
     if (element.id && element.id.startsWith('script_container_')) {
-        // 处理 JSR/TavernHelper 脚本
         containerIdForWhitelist = `JSR::${element.id.substring('script_container_'.length)}`;
-        isIdentified = true;
     } else if (element.classList.contains('qr--buttons')) {
-        // 处理 Quick Reply v2 按钮集
-        const allSetsMap = getAllQrSets(qrApi);
-        const setData = allSetsMap.get(element);
+        const allSetsMap = getAllQrSets(qrApi); 
+        const setData = allSetsMap.get(element); 
         if (setData?.name) {
-            // ★ 成功识别！
             containerIdForWhitelist = `QRV2::${setData.name}`;
-            isIdentified = true;
-        } else {
-            // ★ 未能识别！这正是发生竞争条件的时刻。
-            // 我们暂时不对其做任何操作，让它保持原样，等待下一轮检查。
-            // 明确移除我们的控制类，以防万一。
-            element.classList.remove('qrq-hidden-by-plugin', 'qrq-whitelisted-original');
-            return; // 【关键修复】提前退出，不尝试隐藏！
         }
     }
 
-    // 如果元素根本不是我们关心的类型，直接退出
-    if (!isIdentified) {
-        return;
-    }
-    
     // 核心判断：
+    // 1. 元素本身是否在白名单中？
     const isWhitelisted = containerIdForWhitelist && whitelist.includes(containerIdForWhitelist);
+    // 2. 元素的后代中是否有任何一个在白名单中？
     const hasVisibleChild = hasWhitelistedDescendant(element, whitelist);
 
     // 根据上述判断，应用CSS类
     if (isWhitelisted || hasVisibleChild) {
-        // **显示**
+        // **显示**：只要元素本身或其任何子元素在白名单中，就必须将此容器标记为可见。
+        // 这将激活 style.css 中的 `display: contents` 或 `display: flex` 规则。
         element.classList.add('qrq-whitelisted-original');
         element.classList.remove('qrq-hidden-by-plugin');
     } else {
-        // **隐藏**
-        element.classList.add('qrq-hidden-by-plugin');
-        element.classList.remove('qrq-whitelisted-original');
+        // **隐藏**：仅当元素本身及其所有后代都【不】在白名单中时，才隐藏它。
+        // 同时，确保我们只操作目标元素（QR按钮组或TH脚本容器）。
+        if (element.classList.contains('qr--buttons') || element.id.startsWith('script_container_')) {
+            element.classList.add('qrq-hidden-by-plugin');
+            element.classList.remove('qrq-whitelisted-original');
+        }
     }
 }
 // ======================= 重构的核心逻辑 (END) =======================
