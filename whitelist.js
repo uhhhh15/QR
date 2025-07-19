@@ -1,3 +1,4 @@
+// whitelist.js (v8 - Fixes TavernHelper compatibility in combined mode)
 import * as Constants from './constants.js';
 import { sharedState } from './state.js';
 import { fetchQuickReplies } from './api.js';
@@ -118,7 +119,6 @@ function processElement(element, whitelist, qrApi) {
 }
 // ======================= 重构的核心逻辑 (END) =======================
 
-
 export function applyWhitelistDOMChanges() {
     const qrBar = document.getElementById('qr--bar');
     if (!qrBar) return;
@@ -128,13 +128,13 @@ export function applyWhitelistDOMChanges() {
     const pluginEnabled = settings?.enabled !== false;
     const qrApi = window.quickReplyApi;
 
-    // 1. 重置所有由本插件添加的控制类
+    // 1. 重置
     const elementsToReset = qrBar.querySelectorAll('.qrq-whitelisted-original, .qrq-hidden-by-plugin, .qrq-wrapper-visible');
     elementsToReset.forEach(el => {
         el.classList.remove('qrq-whitelisted-original', 'qrq-hidden-by-plugin', 'qrq-wrapper-visible');
     });
 
-    // 2. 如果插件被禁用，恢复所有元素的默认显示并退出
+    // 2. 插件禁用检查
     if (!pluginEnabled) {
         document.body.classList.remove('qra-enabled');
         document.body.classList.add('qra-disabled');
@@ -149,27 +149,66 @@ export function applyWhitelistDOMChanges() {
     const wrapper = Array.from(qrBar.children).find(child => isCombinedWrapper(child, qrBar));
 
     if (wrapper) {
-        // --- 合并模式下的逻辑 ---
-        // (此部分代码结构正确，无需修改，它会调用我们已修复的 processElement)
+        // --- 合并模式逻辑 ---
+
+        // 步骤一：处理所有可被白名单管理的容器
         const allButtonContainersInWrapper = wrapper.querySelectorAll('.qr--buttons, [id^="script_container_"]');
         allButtonContainersInWrapper.forEach(container => {
             processElement(container, whitelist, qrApi);
         });
-        const hasVisibleChildSomewhere = wrapper.querySelector('.qrq-whitelisted-original');
-        if (hasVisibleChildSomewhere) {
+
+        // 步骤二：清理那些因“后代”而可见的父容器，隐藏其自身按钮
+        allButtonContainersInWrapper.forEach(container => {
+            let containerIdForWhitelist = '';
+            let isContainerItselfWhitelisted = false;
+            
+            if (container.id && container.id.startsWith('script_container_')) {
+                containerIdForWhitelist = `JSR::${container.id.substring('script_container_'.length)}`;
+            } else if (container.classList.contains('qr--buttons')) {
+                const setData = getAllQrSets(qrApi).get(container);
+                if (setData?.name) {
+                    containerIdForWhitelist = `QRV2::${setData.name}`;
+                }
+            }
+            
+            if (containerIdForWhitelist && whitelist.includes(containerIdForWhitelist)) {
+                isContainerItselfWhitelisted = true;
+            }
+
+            if (!isContainerItselfWhitelisted && container.classList.contains('qrq-whitelisted-original')) {
+                Array.from(container.children).forEach(child => {
+                    if (child.matches('.qr--button')) {
+                        child.classList.add('qrq-hidden-by-plugin');
+                    }
+                });
+            }
+        });
+        
+        // ======================= ★★★ 最终修复 ★★★ =======================
+        // 步骤三：【最终修复】决定 wrapper 的可见性。
+        // 不仅要检查白名单元素，还要检查受保护的输入助手元素。
+        const hasWhitelistedItem = wrapper.querySelector('.qrq-whitelisted-original');
+        const hasProtectedInputHelper = wrapper.querySelector('#input_helper_toolbar, #custom_buttons_container, .qr--button[id^="input_"]');
+        
+        if (hasWhitelistedItem || hasProtectedInputHelper) {
+            // 只要有任何一个白名单项 或 任何一个输入助手项，wrapper 就必须可见！
             wrapper.classList.add('qrq-wrapper-visible');
             wrapper.classList.remove('qrq-hidden-by-plugin');
         } else {
+            // 只有在绝对空的情况下，才隐藏 wrapper
             wrapper.classList.add('qrq-hidden-by-plugin');
             wrapper.classList.remove('qrq-wrapper-visible');
         }
+        // ======================= ★★★ 修复结束 ★★★ =======================
+        
+        // 处理其他不在 wrapper 内的元素
         Array.from(qrBar.children).forEach(element => {
             if (element === wrapper || element.id === 'qr--popoutTrigger') return;
             processElement(element, whitelist, qrApi);
         });
 
     } else {
-        // --- 非合并模式的逻辑（保持不变）---
+        // --- 非合并模式逻辑（保持不变）---
         Array.from(qrBar.children).forEach(element => {
             if (element.id === 'qr--popoutTrigger') return;
             processElement(element, whitelist, qrApi);
