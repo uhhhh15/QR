@@ -1,4 +1,4 @@
-/* style.css */
+/* style.css (已应用最终修复) */
 
 /* ==========================================
    核心规则：显隐控制 (由 whitelist.js 动态添加/移除类)
@@ -26,14 +26,15 @@ body.qra-enabled #qr--bar > .qr--buttons.qrq-wrapper-visible {
 
 /*
    ★★★ 布局修复核心：display: contents ★★★
-   当白名单容器 (QR Set, JSR) 或受保护容器 (InputHelper) 位于 wrapper 内部时，
+   【最终修复】：将直接子代选择器 > 改为后代选择器 (空格)，以匹配深层嵌套的容器。
+   当白名单容器 (QR Set, JSR) 或受保护容器 (InputHelper) 位于 wrapper 内部任意位置时，
    使用 display: contents 使容器在布局上消失，其子按钮成为 wrapper 的直接 flex 子项，实现无缝排列。
 */
-body.qra-enabled .qrq-wrapper-visible > .qr--buttons.qrq-whitelisted-original,
-body.qra-enabled .qrq-wrapper-visible > div[id^="script_container_"].qrq-whitelisted-original,
+body.qra-enabled .qrq-wrapper-visible .qr--buttons.qrq-whitelisted-original,
+body.qra-enabled .qrq-wrapper-visible div[id^="script_container_"].qrq-whitelisted-original,
 /* 同时处理受保护的输入助手容器 (如果它们在 wrapper 内部) */
-body.qra-enabled .qrq-wrapper-visible > #input_helper_toolbar,
-body.qra-enabled .qrq-wrapper-visible > #custom_buttons_container
+body.qra-enabled .qrq-wrapper-visible #input_helper_toolbar,
+body.qra-enabled .qrq-wrapper-visible #custom_buttons_container
  {
     display: contents !important; 
 }
@@ -44,13 +45,13 @@ body.qra-enabled .qrq-wrapper-visible > #custom_buttons_container
 /*
     当白名单容器【不在】wrapper 内部时 (例如 ST 未开启 "合并QR")，
     它们是 #qr--bar 的直接子元素，此时它们需要 display: flex 来显示内部按钮。
-    选择器：匹配 #qr--bar 的直接子元素(>)，且不是 wrapper 本身(:not)
+    选择器：匹配 #qr--bar 的直接子元素(>)，且不是 wrapper 本身(:not) -- 这部分逻辑是正确的，保持不变
 */
 body.qra-enabled #qr--bar > .qr--buttons.qrq-whitelisted-original:not(.qrq-wrapper-visible),
 body.qra-enabled #qr--bar > div[id^="script_container_"].qrq-whitelisted-original {
      display: flex !important;
      gap: 5px; /* 容器间距 */
-      align-items: center;
+     align-items: center;
  }
 
  /* 确保单个按钮 (如果被白名单，或用于兜底) 正确显示 */
