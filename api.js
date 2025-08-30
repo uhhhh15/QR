@@ -1,4 +1,4 @@
-// api.js - 最终完整版 3.0（修正数据源 + 保持正确哈希）
+// api.js - 最终完整版 3.2（修复QRv2优先级过滤BUG + 保留角色QR支持和最新哈希）
 import * as Constants from './constants.js';
 import { setMenuVisible } from './state.js';
 
@@ -45,19 +45,14 @@ function flattenJsrScripts(items) {
     const flatScripts = [];
 
     const processItem = (item) => {
-        // Case 1: 这是一个文件夹，递归处理其内部的脚本
         if (item && item.type === 'folder' && Array.isArray(item.value)) {
-            // 文件夹内的脚本是纯粹的脚本对象，直接遍历
             item.value.forEach(scriptInFolder => {
-                // 直接将文件夹内的脚本对象加入结果列表
                 flatScripts.push(scriptInFolder);
             });
         }
-        // Case 2: 这是一个顶层脚本，提取其 .value
         else if (item && item.type === 'script' && item.value) {
             flatScripts.push(item.value);
         }
-        // Case 3: 兼容非常旧的、没有任何包装的扁平结构（以防万一）
         else if (item && !item.type && item.id) {
             flatScripts.push(item);
         }
@@ -69,73 +64,72 @@ function flattenJsrScripts(items) {
 }
 
 /**
- * Fetches chat and global quick replies from the quickReplyApi.
- * Also fetches JS Runner buttons directly from its settings if available via SillyTavern.extensionSettings.
+ * Fetches chat, character, and global quick replies, applying priority rules.
+ * Also fetches JS Runner buttons directly from its settings.
+ * Priority: Chat > Character > Global.
  * @returns {{ chat: Array<object>, global: Array<object> }}
  */
 export function fetchQuickReplies() {
     const stContext = (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null;
 
-    console.log(`[${Constants.EXTENSION_NAME} Debug] fetchQuickReplies called.`);
-    let chatReplies = [];
-    const globalReplies = [];
-    const chatQrLabels = new Set();
+    console.log(`[${Constants.EXTENSION_NAME} Debug] fetchQuickReplies called with corrected priority logic.`);
+    
+    // 最终用于UI渲染的列表
+    const finalChatReplies = [];
+    const finalGlobalReplies = [];
+    
+    // 用于去重的集合
+    const processedSetNames = new Set(); // 跟踪已处理的 QRv2 回复集名称
+    const processedLabels = new Set();   // 跟踪已处理的所有按钮标签，防止UI上出现同名按钮
 
-    // --- 1. 获取标准 Quick Reply v2 ---
+    // --- 1. 获取并处理标准 Quick Reply v2 (包含新增的角色逻辑) ---
     if (!window.quickReplyApi) {
-        console.warn(`[${Constants.EXTENSION_NAME}] Quick Reply API (window.quickReplyApi) not found! Cannot fetch standard replies.`);
+        console.warn(`[${Constants.EXTENSION_NAME}] Quick Reply API (window.quickReplyApi) not found!`);
     } else {
         const qrApi = window.quickReplyApi;
         if (qrApi.settings?.isEnabled !== false) {
-            console.log(`[${Constants.EXTENSION_NAME}] Fetching standard Quick Replies...`);
-            try {
-                // Fetch Chat Quick Replies
-                if (qrApi.settings?.chatConfig?.setList) {
-                    qrApi.settings.chatConfig.setList.forEach(setLink => {
-                        if (setLink?.isVisible && setLink.set?.qrList && Array.isArray(setLink.set.qrList)) {
-                            setLink.set.qrList.forEach(qr => {
-                                if (qr && !qr.isHidden && qr.label && qr.label.trim() !== "") {
-                                    const label = qr.label.trim();
-                                    if (!chatQrLabels.has(label)) {
-                                        chatReplies.push({
-                                            setName: setLink.set.name || 'Unknown Set',
-                                            label: label,
-                                            message: qr.message || `(标准回复: ${label})`,
-                                            isStandard: true,
-                                            source: 'QuickReplyV2'
-                                        });
-                                        chatQrLabels.add(label);
-                                    }
-                                }
-                            });
-                        }
-                    });
-                }
+            console.log(`[${Constants.EXTENSION_NAME}] Fetching standard Quick Replies (Chat, Character, Global)...`);
 
-                // Fetch Global Quick Replies
-                if (qrApi.settings?.config?.setList) {
-                    qrApi.settings.config.setList.forEach(setLink => {
-                        if (setLink?.isVisible && setLink.set?.qrList && Array.isArray(setLink.set.qrList)) {
-                            setLink.set.qrList.forEach(qr => {
-                                if (qr && !qr.isHidden && qr.label && qr.label.trim() !== "") {
-                                    const label = qr.label.trim();
-                                    if (!chatQrLabels.has(label)) {
-                                        globalReplies.push({
-                                            setName: setLink.set.name || 'Unknown Set',
-                                            label: label,
-                                            message: qr.message || `(标准回复: ${label})`,
-                                            isStandard: true,
-                                            source: 'QuickReplyV2'
-                                        });
-                                    }
+            // ★★★ 修复核心 ★★★
+            // 辅助函数，用于处理一个级别的回复集列表 (例如 chatConfig.setList)
+            const processQrLevel = (setList, destinationList) => {
+                if (!setList || !Array.isArray(setList)) return;
+
+                setList.forEach(setLink => {
+                    const setName = setLink?.set?.name;
+                    // 如果这个回复集已经被更高优先级的版本处理过，则跳过整个回复集
+                    if (!setName || processedSetNames.has(setName)) {
+                        return; 
+                    }
+
+                    // 标记此回复集名称为已处理
+                    processedSetNames.add(setName);
+                    
+                    if (setLink?.isVisible && setLink.set?.qrList && Array.isArray(setLink.set.qrList)) {
+                        setLink.set.qrList.forEach(qr => {
+                            if (qr && !qr.isHidden && qr.label && qr.label.trim() !== "") {
+                                const label = qr.label.trim();
+                                // 只要标签没重复，就添加
+                                if (!processedLabels.has(label)) {
+                                    destinationList.push({
+                                        setName: setName || 'Unknown Set',
+                                        label: label,
+                                        message: qr.message || `(标准回复: ${label})`,
+                                        isStandard: true,
+                                        source: 'QuickReplyV2'
+                                    });
+                                    processedLabels.add(label);
                                 }
-                            });
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error(`[${Constants.EXTENSION_NAME}] Error fetching standard quick replies:`, error);
-            }
+                            }
+                        });
+                    }
+                });
+            };
+
+            // 按照 聊天 -> 角色 -> 全局 的顺序处理
+            processQrLevel(qrApi.settings?.chatConfig?.setList, finalChatReplies);
+            processQrLevel(qrApi.settings?.charConfig?.setList, finalChatReplies); // 角色回复也属于聊天级别
+            processQrLevel(qrApi.settings?.config?.setList, finalGlobalReplies);
         }
     }
 
@@ -149,16 +143,16 @@ export function fetchQuickReplies() {
     } else if (jsRunnerSettings.enabled_extension === false) {
         console.log(`[${Constants.EXTENSION_NAME}] JS-Slash-Runner plugin is disabled.`);
     } else {
-        const processScripts = (scripts, scriptType, typeEnabled) => {
-            if (!typeEnabled) return;
+        const processScripts = (scripts) => {
             if (!scripts || !Array.isArray(scripts)) return;
             scripts.forEach(script => {
                 if (script && script.enabled && script.buttons && Array.isArray(script.buttons)) {
                     script.buttons.forEach(button => {
                         if (button && button.visible && button.name && button.name.trim() !== "") {
                             const label = button.name.trim();
-                            if (!chatQrLabels.has(label)) {
-                                chatReplies.push({
+                            // 关键：检查标签是否已被更高优先级的QRv2按钮占用
+                            if (!processedLabels.has(label)) {
+                                finalChatReplies.push({ // JSR按钮总是被视为“聊天”级别
                                     setName: script.name || 'JS脚本',
                                     label: label,
                                     message: `(JS脚本: ${script.name || '未命名'})`,
@@ -166,7 +160,7 @@ export function fetchQuickReplies() {
                                     scriptId: script.id,
                                     source: 'JSSlashRunner'
                                 });
-                                chatQrLabels.add(label);
+                                processedLabels.add(label); // 记录已处理的标签
                             }
                         }
                     });
@@ -174,13 +168,14 @@ export function fetchQuickReplies() {
             });
         };
 
-        // 处理全局脚本（这部分逻辑是正确的，因为它直接从全局设置读取）
-        const globalScriptTypeEnabled = jsRunnerSettings.script?.global_script_enabled !== false;
-        const flatGlobalScripts = flattenJsrScripts(jsRunnerSettings.script?.scriptsRepository);
-        processScripts(flatGlobalScripts, 'global', globalScriptTypeEnabled);
+        // 处理全局脚本
+        if (jsRunnerSettings.script?.global_script_enabled !== false) {
+            const flatGlobalScripts = flattenJsrScripts(jsRunnerSettings.script?.scriptsRepository);
+            processScripts(flatGlobalScripts);
+        }
 
+        // 处理角色脚本
         const characterId = stContext.characterId;
-
         if (stContext.characters && typeof characterId !== 'undefined' && characterId !== null) {
             const currentChar = stContext.characters[characterId];
             if (currentChar && currentChar.avatar) {
@@ -188,19 +183,16 @@ export function fetchQuickReplies() {
                 const isCurrentCharEnabled = characterEnabledList.includes(currentChar.avatar);
 
                 if (isCurrentCharEnabled) {
-                    // TavernHelper 用这个键来加载和执行脚本。
                     const characterScriptsRepository = currentChar.data?.extensions?.[JSR_CHAR_EXTENSION_KEY];
-
-                    // 将提取出的脚本仓库数组传入拍平函数并处理
                     const flatCharacterScripts = flattenJsrScripts(characterScriptsRepository);
-                    processScripts(flatCharacterScripts, 'character', true);
+                    processScripts(flatCharacterScripts);
                 }
             }
         }
     }
 
-    console.log(`[${Constants.EXTENSION_NAME} Debug] Final fetch results - Chat (incl. JS): ${chatReplies.length}, Global: ${globalReplies.length}`);
-    return { chat: chatReplies, global: globalReplies };
+    console.log(`[${Constants.EXTENSION_NAME} Debug] Final fetch results - Chat (incl. Char & JS): ${finalChatReplies.length}, Global: ${finalGlobalReplies.length}`);
+    return { chat: finalChatReplies, global: finalGlobalReplies };
 }
 
 /**
@@ -231,7 +223,6 @@ export async function triggerQuickReply(setName, label) {
  * @param {string} buttonLabel - The label of the button within the script.
  */
 export async function triggerJsRunnerScript(scriptId, buttonLabel) {
-    // 【最终修正-C】在函数内部实时获取上下文
     const stContext = (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null;
 
     if (!stContext || !stContext.eventSource || typeof stContext.eventSource.emit !== 'function') {
@@ -248,11 +239,9 @@ export async function triggerJsRunnerScript(scriptId, buttonLabel) {
         return;
     }
 
-    // 使用我们自己文件中的 getStringHash 函数来生成正确的事件名称
     const buttonNameHash = getStringHash(buttonLabel);
     const eventName = `${scriptId}_${buttonNameHash}`;
 
-    // 我添加了 hash 值的日志，方便你确认它是否正确生成
     console.log(`[${Constants.EXTENSION_NAME}] Triggering JS Runner Script: Event='${eventName}' (Label: "${buttonLabel}", Hash: "${buttonNameHash}")`);
     try {
         await stContext.eventSource.emit(eventName);
