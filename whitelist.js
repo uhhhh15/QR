@@ -29,11 +29,19 @@ let lastQrApiSettingsString = null;
 function getAllQrSets(qrApi) {
     const configList = qrApi?.settings?.config?.setList;
     const chatConfigList = qrApi?.settings?.chatConfig?.setList;
+    const charConfigList = qrApi?.settings?.charConfig?.setList; // 新增：获取角色配置
+
     const configNames = (configList || []).map(sl => sl?.set?.name).filter(Boolean).sort().join(',');
     const chatNames = (chatConfigList || []).map(sl => sl?.set?.name).filter(Boolean).sort().join(',');
-    const currentSettingsString = `${configList?.length}:${configNames}|${chatConfigList?.length}:${chatNames}`;
+    const charNames = (charConfigList || []).map(sl => sl?.set?.name).filter(Boolean).sort().join(','); // 新增：获取角色set名称
+
+    // 更新缓存键，使其包含角色配置，以便在角色切换时正确更新
+    const currentSettingsString = `${configList?.length}:${configNames}|${chatConfigList?.length}:${chatNames}|${charConfigList?.length}:${charNames}`;
+    
     if (lastQrApiSettingsString === currentSettingsString && allQrSetsCache.size > 0) return allQrSetsCache;
+    
     allQrSetsCache.clear(); 
+    
     const collect = (list) => {
         list?.forEach(setLink => {
             if (setLink?.set?.dom && setLink.set.name && document.body.contains(setLink.set.dom)) {
@@ -41,8 +49,11 @@ function getAllQrSets(qrApi) {
             }
         });
     };
+    
     collect(configList);
     collect(chatConfigList);
+    collect(charConfigList); // 新增：收集角色相关的sets
+    
     lastQrApiSettingsString = currentSettingsString;
     return allQrSetsCache;
 }
