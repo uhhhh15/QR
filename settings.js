@@ -630,11 +630,11 @@ export function createSettingsHtml() {
             <input type="text" id="${Constants.ID_CUSTOM_ICON_URL}"
                    style="grid-column: 2; width:auto; justify-self: start;"
                    placeholder="输入URL或上传图片">
-            <button for="icon-file-upload" class="menu_button"
-                    style="grid-column: 3; justify-self: end; width:auto;">
-                <i class="fa-solid fa-upload"></i> 上传图片
+            <button id="qrq-open-catbox-button" class="menu_button"
+                    style="grid-column: 3; justify-self: end; width:auto;"
+                    title="打开 Catbox.moe 上传图片并获取链接">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> 打开图床
             </button>
-            <input type="file" id="icon-file-upload" accept="image/*" style="display:none;" />
 
             <!-- 第二行：图标大小 输入长度增至原来的1.5倍 -->
             <label style="grid-column: 1; justify-self: start;">图标大小 (px):</label>
@@ -1007,15 +1007,13 @@ export function setupSettingsEventListeners() {
 
     const usageCloseButton = document.getElementById(`${Constants.ID_USAGE_PANEL}-close`);
     usageCloseButton?.addEventListener('click', closeUsagePanel);
-
-    const fileUpload = document.getElementById('icon-file-upload');
-    fileUpload?.addEventListener('change', handleFileUpload);
     
-    // [已恢复] "上传图片"按钮的点击逻辑，这是必需的
-    const uploadButton = document.querySelector('button[for="icon-file-upload"]');
-    if (uploadButton) {
-        uploadButton.addEventListener('click', () => {
-            fileUpload?.click(); // 触发隐藏的文件输入框
+    // 将"上传图片"按钮的点击事件改为跳转到 Catbox
+    const catboxButton = document.getElementById('qrq-open-catbox-button');
+    if (catboxButton) {
+        catboxButton.addEventListener('click', () => {
+            // 在新标签页中打开指定的网址
+            window.open('https://catbox.moe/', '_blank');
         });
     }
 
@@ -1162,68 +1160,7 @@ export function setupSettingsEventListeners() {
     }
 }
 
-/**
- * 处理文件上传事件
- * @param {Event} event 文件上传事件
- */
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const customIconUrlInput = document.getElementById(Constants.ID_CUSTOM_ICON_URL);
-        if (customIconUrlInput) {
-            const fileData = e.target.result; // 完整的 Data URL
-            const settings = extension_settings[Constants.EXTENSION_NAME];
-
-            // 1. 首先更新 settings 对象中的真实数据
-            settings.customIconUrl = fileData;
-
-            // 2. 然后更新 DOM 元素 (dataset 和 value)
-            if (fileData.length > 1000) {
-                customIconUrlInput.dataset.fullValue = fileData;
-                customIconUrlInput.value = "[图片数据已保存，但不在输入框显示以提高性能]"; // 这可能会触发 input 事件 -> handleSettingsChange
-            } else {
-                delete customIconUrlInput.dataset.fullValue; // 清除旧的 dataset (如果适用)
-                customIconUrlInput.value = fileData;          // 这也可能触发 input 事件
-            }
-
-            // 3. 更新图标显示 (它会从 settings.customIconUrl 读取)
-            updateIconDisplay();
-            scheduleAutoSave();
-
-            // 4. 如果需要，标记"未保存"状态或提示用户保存。
-            // (handleSettingsChange 会被触发，但其逻辑已调整，不会错误覆盖 settings.customIconUrl)
-            // 检查是否与已保存的图标匹配，并相应地更新选择下拉框和删除按钮状态
-            const currentSize = settings.customIconSize;
-            const isStillSaved = settings.savedCustomIcons && settings.savedCustomIcons.some(
-                icon => icon.url === fileData && icon.size === currentSize
-            );
-            if (!isStillSaved) {
-                sharedState.currentSelectedSavedIconId = null;
-                const deleteBtn = document.getElementById(Constants.ID_DELETE_SAVED_ICON_BUTTON);
-                if (deleteBtn) deleteBtn.style.display = 'none';
-                const selectElement = document.getElementById(Constants.ID_CUSTOM_ICON_SELECT);
-                if (selectElement) selectElement.value = "";
-            } else {
-                // 如果上传的图标恰好是已保存的某个，可以考虑自动选中它
-                const savedMatch = settings.savedCustomIcons.find(icon => icon.url === fileData && icon.size === currentSize);
-                if (savedMatch) {
-                    sharedState.currentSelectedSavedIconId = savedMatch.id;
-                    const deleteBtn = document.getElementById(Constants.ID_DELETE_SAVED_ICON_BUTTON);
-                    if (deleteBtn) deleteBtn.style.display = 'inline-block';
-                    const selectElement = document.getElementById(Constants.ID_CUSTOM_ICON_SELECT);
-                    if (selectElement) selectElement.value = savedMatch.id;
-                }
-            }
-        }
-    };
-    reader.onerror = function(error) {
-        console.error(`[${Constants.EXTENSION_NAME}] 读取文件失败:`, error);
-    };
-    reader.readAsDataURL(file);
-}
 
 /**
  * Loads initial settings and applies them to the UI elements in the settings panel.
