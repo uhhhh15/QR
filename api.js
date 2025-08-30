@@ -1,15 +1,39 @@
-// api.js - 最终完整版
+// api.js - 最终完整版 3.0（修正数据源 + 保持正确哈希）
 import * as Constants from './constants.js';
 import { setMenuVisible } from './state.js';
 
-// JS-Slash-Runner 在 extension_settings 和角色扩展中使用的键名
+// JS-Slash-Runner 在 extension_settings 中使用的键名
 const JSR_SETTINGS_KEY = "TavernHelper";
 // JS-Slash-Runner 在角色扩展中存储脚本的键名
 const JSR_CHAR_EXTENSION_KEY = "TavernHelper_scripts";
 
 /**
+ * SillyTavern 的内部字符串哈希函数（从新版 TavernHelper 的行为推断）。
+ * 这是一个高质量的 53 位哈希函数 (cyrb53)，能生成与当前 TavernHelper 行为一致的大数值哈希。
+ * 它返回的是一个十进制数字字符串，而不是 base-36。
+ * @param {string} str - 要进行哈希处理的字符串。
+ * @param {number} [seed=0] - 可选的哈希种子。
+ * @returns {string} - 一个十进制格式的哈希字符串。
+ */
+function getStringHash(str, seed = 0) {
+    if (typeof str !== 'string' || str.length === 0) {
+        return '0';
+    }
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for (let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    // 返回一个 53-bit 的哈希值，并转换为十进制字符串
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString();
+}
+
+/**
  * 辅助函数：将新的、包含文件夹的 JSR 脚本数据结构“拍平”，
- * 转换成旧的、简单的脚本对象数组（兼容新旧版酒馆助手3.2.3版本）。
+ * 转换成旧的、简单的脚本对象数组（兼容新旧版酒馆助手 3.2.3 版本）。
  * @param {Array<object>} items - 从 JSR 设置中获取的原始脚本/文件夹列表。
  * @returns {Array<object>} - 一个只包含纯脚本对象的扁平数组。
  */
@@ -44,20 +68,18 @@ function flattenJsrScripts(items) {
     return flatScripts;
 }
 
-
 /**
  * Fetches chat and global quick replies from the quickReplyApi.
  * Also fetches JS Runner buttons directly from its settings if available via SillyTavern.extensionSettings.
  * @returns {{ chat: Array<object>, global: Array<object> }}
  */
 export function fetchQuickReplies() {
-    // 【最终修正-A】在函数内部实时获取上下文
     const stContext = (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null;
 
     console.log(`[${Constants.EXTENSION_NAME} Debug] fetchQuickReplies called.`);
     let chatReplies = [];
     const globalReplies = [];
-    const chatQrLabels = new Set(); // To track labels and avoid duplicates in chat section
+    const chatQrLabels = new Set();
 
     // --- 1. 获取标准 Quick Reply v2 ---
     if (!window.quickReplyApi) {
@@ -96,7 +118,7 @@ export function fetchQuickReplies() {
                         if (setLink?.isVisible && setLink.set?.qrList && Array.isArray(setLink.set.qrList)) {
                             setLink.set.qrList.forEach(qr => {
                                 if (qr && !qr.isHidden && qr.label && qr.label.trim() !== "") {
-                                     const label = qr.label.trim();
+                                    const label = qr.label.trim();
                                     if (!chatQrLabels.has(label)) {
                                         globalReplies.push({
                                             setName: setLink.set.name || 'Unknown Set',
@@ -121,14 +143,14 @@ export function fetchQuickReplies() {
     const jsRunnerSettings = stContext?.extensionSettings?.[JSR_SETTINGS_KEY];
 
     if (!stContext) {
-         console.warn(`[${Constants.EXTENSION_NAME}] SillyTavern context not available.`);
+        console.warn(`[${Constants.EXTENSION_NAME}] SillyTavern context not available.`);
     } else if (!jsRunnerSettings) {
         console.warn(`[${Constants.EXTENSION_NAME}] JS-Slash-Runner settings not found.`);
     } else if (jsRunnerSettings.enabled_extension === false) {
         console.log(`[${Constants.EXTENSION_NAME}] JS-Slash-Runner plugin is disabled.`);
     } else {
         const processScripts = (scripts, scriptType, typeEnabled) => {
-             if (!typeEnabled) return;
+            if (!typeEnabled) return;
             if (!scripts || !Array.isArray(scripts)) return;
             scripts.forEach(script => {
                 if (script && script.enabled && script.buttons && Array.isArray(script.buttons)) {
@@ -152,28 +174,25 @@ export function fetchQuickReplies() {
             });
         };
 
-        // 处理全局脚本
+        // 处理全局脚本（这部分逻辑是正确的，因为它直接从全局设置读取）
         const globalScriptTypeEnabled = jsRunnerSettings.script?.global_script_enabled !== false;
         const flatGlobalScripts = flattenJsrScripts(jsRunnerSettings.script?.scriptsRepository);
         processScripts(flatGlobalScripts, 'global', globalScriptTypeEnabled);
 
-        // 【最终修正-B】直接使用 stContext.characterId，这是 this_chid 的实时引用
         const characterId = stContext.characterId;
 
         if (stContext.characters && typeof characterId !== 'undefined' && characterId !== null) {
             const currentChar = stContext.characters[characterId];
             if (currentChar && currentChar.avatar) {
-                // 原代码中这行有误，characters_with_scripts_enabled 不存在
-                // const characterScriptsTypeEnabled = jsRunnerSettings.script?.characters_with_scripts_enabled !== false; 
                 const characterEnabledList = Array.isArray(jsRunnerSettings.script?.characters_with_scripts) ? jsRunnerSettings.script.characters_with_scripts : [];
                 const isCurrentCharEnabled = characterEnabledList.includes(currentChar.avatar);
-                
-                // 原代码中这行有误，characterScriptsTypeEnabled 永远是 true，应只判断 isCurrentCharEnabled
-                // if (characterScriptsTypeEnabled && isCurrentCharEnabled) {
+
                 if (isCurrentCharEnabled) {
-                    // JSR 将角色脚本存在 character.data.extensions.TavernHelper_scripts
-                    const characterScripts = currentChar.data?.extensions?.[JSR_CHAR_EXTENSION_KEY];
-                    const flatCharacterScripts = flattenJsrScripts(characterScripts);
+                    // TavernHelper 用这个键来加载和执行脚本。
+                    const characterScriptsRepository = currentChar.data?.extensions?.[JSR_CHAR_EXTENSION_KEY];
+
+                    // 将提取出的脚本仓库数组传入拍平函数并处理
+                    const flatCharacterScripts = flattenJsrScripts(characterScriptsRepository);
                     processScripts(flatCharacterScripts, 'character', true);
                 }
             }
@@ -183,7 +202,6 @@ export function fetchQuickReplies() {
     console.log(`[${Constants.EXTENSION_NAME} Debug] Final fetch results - Chat (incl. JS): ${chatReplies.length}, Global: ${globalReplies.length}`);
     return { chat: chatReplies, global: globalReplies };
 }
-
 
 /**
  * Triggers a specific standard quick reply using the API.
@@ -196,8 +214,8 @@ export async function triggerQuickReply(setName, label) {
         return;
     }
     if (window.quickReplyApi.settings?.isEnabled === false) {
-         console.log(`[${Constants.EXTENSION_NAME}] Core Quick Reply v2 is disabled.`);
-         return;
+        console.log(`[${Constants.EXTENSION_NAME}] Core Quick Reply v2 is disabled.`);
+        return;
     }
     console.log(`[${Constants.EXTENSION_NAME}] Triggering Standard Quick Reply: "${setName}.${label}"`);
     try {
@@ -222,7 +240,7 @@ export async function triggerJsRunnerScript(scriptId, buttonLabel) {
     }
     const jsRunnerSettings = stContext.extensionSettings?.[JSR_SETTINGS_KEY];
     if (!jsRunnerSettings) {
-         console.log(`[${Constants.EXTENSION_NAME}] JS-Slash-Runner settings not found.`);
+        console.log(`[${Constants.EXTENSION_NAME}] JS-Slash-Runner settings not found.`);
         return;
     }
     if (jsRunnerSettings.enabled_extension === false) {
@@ -230,8 +248,12 @@ export async function triggerJsRunnerScript(scriptId, buttonLabel) {
         return;
     }
 
-    const eventName = `${scriptId}_${buttonLabel}`;
-    console.log(`[${Constants.EXTENSION_NAME}] Triggering JS Runner Script: Event='${eventName}'`);
+    // 使用我们自己文件中的 getStringHash 函数来生成正确的事件名称
+    const buttonNameHash = getStringHash(buttonLabel);
+    const eventName = `${scriptId}_${buttonNameHash}`;
+
+    // 我添加了 hash 值的日志，方便你确认它是否正确生成
+    console.log(`[${Constants.EXTENSION_NAME}] Triggering JS Runner Script: Event='${eventName}' (Label: "${buttonLabel}", Hash: "${buttonNameHash}")`);
     try {
         await stContext.eventSource.emit(eventName);
     } catch (error) {
