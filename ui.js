@@ -48,7 +48,7 @@ export function createMenuElement() {
     const chatTitle = document.createElement('div');
     chatTitle.id = `${Constants.ID_CHAT_LIST_CONTAINER}-title`; // ID for aria-labelledby
     chatTitle.className = Constants.CLASS_LIST_TITLE;
-    chatTitle.textContent = '聊天快速回复'; // Title includes standard and JS Runner replies now
+    chatTitle.textContent = '角色快速回复'; // Title includes standard and JS Runner replies now
 
     const chatItems = document.createElement('div');
     chatItems.id = Constants.ID_CHAT_ITEMS; // Container for chat items
