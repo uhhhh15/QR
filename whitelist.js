@@ -157,12 +157,41 @@ export function applyWhitelistDOMChanges() {
     document.body.classList.remove('qra-disabled');
     document.body.classList.add('qra-enabled');
 
+    // ====================== ★★★ BUG修复开始 ★★★ ======================
+    // 将LWB按钮处理逻辑从函数末尾移动到这里。
+    // 确保在判断 wrapper 可见性之前，所有类型的按钮都已被处理。
+    // --- 处理 LittleWhiteBox 的原生按钮 ---
+    if (window.XBTasks && typeof window.XBTasks.find === 'function') {
+        const lwbButtons = qrBar.querySelectorAll('.xiaobaix-task-button');
+        lwbButtons.forEach(button => {
+            const taskName = button.dataset.taskName;
+            if (!taskName) return;
+
+            const taskInfo = window.XBTasks.find(taskName);
+            if (!taskInfo || !taskInfo.scope) return; // 无法找到任务或其范围
+
+            const lwbId = `LWB::${taskInfo.scope}::${taskName}`;
+
+            if (whitelist.includes(lwbId)) {
+                // 在白名单中，确保它可见，并添加 .qrq-whitelisted-original 标记
+                button.classList.add('qrq-whitelisted-original');
+                button.classList.remove('qrq-hidden-by-plugin');
+            } else {
+                // 不在白名单中，隐藏它
+                button.classList.add('qrq-hidden-by-plugin');
+                button.classList.remove('qrq-whitelisted-original');
+            }
+        });
+    }
+    // ====================== ★★★ BUG修复结束 ★★★ ======================
+
+
     const wrapper = Array.from(qrBar.children).find(child => isCombinedWrapper(child, qrBar));
 
     if (wrapper) {
         // --- 合并模式逻辑 ---
 
-        // 步骤一：处理所有可被白名单管理的容器
+        // 步骤一：处理所有可被白名单管理的容器 (QRv2 & JSR)
         const allButtonContainersInWrapper = wrapper.querySelectorAll('.qr--buttons, [id^="script_container_"]');
         allButtonContainersInWrapper.forEach(container => {
             processElement(container, whitelist, qrApi);
@@ -195,9 +224,8 @@ export function applyWhitelistDOMChanges() {
             }
         });
         
-        // ======================= ★★★ 最终修复 ★★★ =======================
-        // 步骤三：【最终修复】决定 wrapper 的可见性。
-        // 不仅要检查白名单元素，还要检查受保护的输入助手元素。
+        // 步骤三：【现在可以正确地】决定 wrapper 的可见性。
+        // 因为 LWB 按钮已经被提前处理，所以 hasWhitelistedItem 现在能正确检测到它们。
         const hasWhitelistedItem = wrapper.querySelector('.qrq-whitelisted-original');
         const hasProtectedInputHelper = wrapper.querySelector('#input_helper_toolbar, #custom_buttons_container, .qr--button[id^="input_"]');
         
@@ -210,7 +238,6 @@ export function applyWhitelistDOMChanges() {
             wrapper.classList.add('qrq-hidden-by-plugin');
             wrapper.classList.remove('qrq-wrapper-visible');
         }
-        // ======================= ★★★ 修复结束 ★★★ =======================
         
         // 处理其他不在 wrapper 内的元素
         Array.from(qrBar.children).forEach(element => {
@@ -225,6 +252,8 @@ export function applyWhitelistDOMChanges() {
             processElement(element, whitelist, qrApi);
         });
     }
+
+    // (LWB 逻辑块已从此位置移除)
 
     // 最后更新菜单项
     filterMenuItems(whitelist, pluginEnabled);
@@ -242,9 +271,19 @@ function filterMenuItems(whitelist, pluginEnabled) {
         const isStandard = btn.dataset.isStandard === 'true';
         const setName = btn.dataset.setName;
         const scriptId = btn.dataset.scriptId;
+        const source = btn.dataset.source;
+
         let id = '';
-        if (isStandard && setName) id = `QRV2::${setName}`;
-        else if (scriptId) id = `JSR::${scriptId}`;
+        if (source === 'LittleWhiteBox') {
+            const scope = btn.dataset.taskScope;
+            const taskId = btn.dataset.taskId;
+            if (scope && taskId) id = `LWB::${scope}::${taskId}`;
+        } else if (isStandard && setName) {
+            id = `QRV2::${setName}`;
+        } else if (scriptId) { // JSR and others
+            id = `JSR::${scriptId}`;
+        }
+
         btn.style.display = (id && whitelist.includes(id)) ? 'none' : 'block';
     });
 }
