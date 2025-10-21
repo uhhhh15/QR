@@ -2,7 +2,7 @@ import * as Constants from './constants.js';
 import { sharedState, setMenuVisible } from './state.js';
 import { updateMenuVisibilityUI } from './ui.js';
 // 从 api.js 导入 triggerQuickReply 和新增的 triggerJsRunnerScript
-import { triggerQuickReply, triggerJsRunnerScript } from './api.js';
+import { triggerQuickReply, triggerJsRunnerScript, triggerLwbTask } from './api.js';
 // 导入 settings.js 中的函数用于处理设置变化和UI更新
 // handleSettingsChange, handleUsageButtonClick, closeUsagePanel, updateIconDisplay 都在 settings.js 中定义和导出
 // --- 更改开始：新增导入 closeWhitelistPanel ---
@@ -86,52 +86,46 @@ export function handleOutsideClick(event) {
  * @param {Event} event The click event on the button.
  */
 export async function handleQuickReplyClick(event) {
-    const button = event.currentTarget; // 获取被点击的菜单项按钮
-    const label = button.dataset.label;
-    const isStandard = button.dataset.isStandard !== 'false'; // 'true' 或 undefined 为 true
+    const button = event.currentTarget;
+    const { label, isStandard, setName, source, isApiBased, buttonId, scriptId, taskId } = button.dataset;
 
     if (!label || label.trim() === "") {
-        console.error(`[${Constants.EXTENSION_NAME}] Missing valid data-label on clicked item.`);
+        console.error(`[${Constants.EXTENSION_NAME}] Clicked item is missing a valid data-label.`);
         setMenuVisible(false);
         updateMenuVisibilityUI();
         return;
     }
 
-    // 先关闭菜单，再执行操作
+    // Close menu first
     setMenuVisible(false);
     updateMenuVisibilityUI();
 
-    if (isStandard) {
-        // --- 标准 Quick Reply v2 行为 ---
-        const setName = button.dataset.setName;
+    if (isStandard === 'true') {
+        // Standard Quick Reply v2
         if (!setName) {
-            console.error(`[${Constants.EXTENSION_NAME}] Missing data-set-name for standard reply item "${label}".`);
+            console.error(`[${Constants.EXTENSION_NAME}] Missing data-set-name for standard reply: "${label}".`);
             return;
         }
-        console.log(`[${Constants.EXTENSION_NAME} Debug] Clicked standard reply: ${setName} / ${label}. Triggering API...`);
-        try {
-            // 调用 api.js 中的 triggerQuickReply
-            await triggerQuickReply(setName, label);
-        } catch (error) {
-            console.error(`[${Constants.EXTENSION_NAME}] Error occurred during triggerQuickReply for "${setName}.${label}".`, error);
-        }
-    } else {
-        // --- JS Runner 按钮代理行为：通过事件触发 ---
-        const scriptId = button.dataset.scriptId;
-        if (!scriptId) {
-            console.error(`[${Constants.EXTENSION_NAME}] Missing data-script-id for JS Runner proxy reply "${label}".`);
+        await triggerQuickReply(setName, label);
+
+    } else if (source === 'JSSlashRunner') {
+        // Tavern Helper / JS Runner
+        const replyData = {
+            isApiBased: isApiBased === 'true',
+            buttonId: buttonId,
+            scriptId: scriptId,
+            label: label
+        };
+        await triggerJsRunnerScript(replyData);
+
+    } else if (source === 'LittleWhiteBox') {
+        // LittleWhiteBox Task
+        if (!taskId) {
+            console.error(`[${Constants.EXTENSION_NAME}] Missing data-task-id for LWB task: "${label}".`);
             return;
         }
-        console.log(`[${Constants.EXTENSION_NAME} Debug] Clicked JS Runner proxy for scriptId: "${scriptId}", label: "${label}". Triggering script...`);
-        try {
-            // 调用 api.js 中的 triggerJsRunnerScript
-            await triggerJsRunnerScript(scriptId, label);
-        } catch (error)
-        {
-            console.error(`[${Constants.EXTENSION_NAME}] Error triggering JS Runner script for scriptId "${scriptId}", label "${label}".`, error);
-        }
+        await triggerLwbTask(taskId);
     }
-    // 不再需要模拟点击DOM元素，直接触发JS-Slash-Runner监听的事件即可
 }
 
 /**
