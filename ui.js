@@ -90,34 +90,34 @@ export function createMenuElement() {
  */
 export function createQuickReplyItem(reply) {
     const item = document.createElement('button');
-    item.type = 'button'; // Explicitly set type
+    item.type = 'button';
     item.className = Constants.CLASS_ITEM;
     item.setAttribute('role', Constants.ARIA_ROLE_MENUITEM);
 
-    // 确保 label 存在且非空
     item.dataset.label = reply.label?.trim() || '';
+    item.dataset.isStandard = String(reply.isStandard !== false);
+    item.dataset.setName = reply.setName || 'Unknown';
+    item.dataset.source = reply.source || 'Unknown';
 
-    // isStandard: 'false' if explicitly false, otherwise 'true'
-    item.dataset.isStandard = String(reply.isStandard === false ? false : true);
-
-    // 添加 setName 数据属性，对于标准QR是回复集名称，对于JS Runner可以是脚本名称或分类
-    item.dataset.setName = reply.setName || (reply.source === 'JSSlashRunner' ? 'JS脚本' : '未知回复集');
-
-    // 如果是非标准回复 (JS Runner)，添加 scriptId 数据属性
-    if (reply.isStandard === false && reply.scriptId) {
+    // --- 核心修改：根据来源存储不同的触发所需数据 ---
+    if (reply.source === 'JSSlashRunner') {
+        item.dataset.isApiBased = String(!!reply.isApiBased); // 'true' or 'false'
+        if (reply.isApiBased) {
+            item.dataset.buttonId = reply.buttonId;
+        }
+        // 始终存储 scriptId 以兼容白名单系统
         item.dataset.scriptId = reply.scriptId;
+    } else if (reply.source === 'LittleWhiteBox') {
+        item.dataset.taskId = reply.taskId;
+        item.dataset.taskScope = reply.taskScope;
     }
 
-    // Tooltip showing source/set > label and message
+    // Tooltip
     const sourceText = item.dataset.setName;
-    const tooltipMessage = reply.message || `(${reply.isStandard ? '标准回复' : 'JS脚本'})`; // Fallback tooltip message if none provided
-    item.title = `${sourceText} > ${item.dataset.label}:\n${tooltipMessage.length > 70 ? tooltipMessage.slice(0, 70) + "..." : tooltipMessage}`;
+    const tooltipMessage = reply.message || `(${reply.isStandard ? 'Standard Reply' : 'Action'})`;
+    item.title = `${sourceText} > ${item.dataset.label}:\n${tooltipMessage.substring(0, 100)}`;
 
-    // Display label as button text
     item.textContent = item.dataset.label;
-
-    // Event listener will be added in renderQuickReplies where this is used
-    // item.dataset.type = 'quick-reply-item'; // Could be used for event delegation if needed
 
     return item;
 }
