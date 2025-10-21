@@ -619,6 +619,13 @@ body.qra-disabled #qr--bar > #qr--popoutTrigger { display: initial !important; }
     content: "🌙";
     color: #ffd700;
 }
+
+/* 新增 LWB 项目的样式 */
+.qrq-whitelist-item.lwb-item::before {
+    content: "⚙️"; /* 使用齿轮图标 */
+    color: #a0a0ff;  /* 使用淡紫色 */
+}
+
 .qrq-whitelist-item:hover {
     background: linear-gradient(90deg, #86a8e7 0%, #91eac9 100%);
     color: #23243a;
