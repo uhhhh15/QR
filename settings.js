@@ -1551,6 +1551,31 @@ export async function populateWhitelistManagementUI() {
     const { chat, global } = fetchQuickReplies();
     const allReplies = [...(chat || []), ...(global || [])];
     const map = new Map();
+
+    // --- 新增：获取 LWB 任务并添加到 map ---
+    if (window.XBTasks && typeof window.XBTasks.dump === 'function') {
+        try {
+            const lwbTasks = window.XBTasks.dump('all');
+            const addLwbToMap = (tasks, scope) => {
+                if (!Array.isArray(tasks)) return;
+                tasks.forEach(task => {
+                    if (task && task.name) {
+                        const id = `LWB::${scope}::${task.name}`;
+                        const scopeInitial = scope.charAt(0).toUpperCase();
+                        const displayName = `[LWB-${scopeInitial}] ${task.name}`;
+                        if (!map.has(id)) map.set(id, { scopedId: id, displayName: displayName, source: 'LWB' });
+                    }
+                });
+            };
+            addLwbToMap(lwbTasks.global, 'global');
+            addLwbToMap(lwbTasks.character, 'character');
+            addLwbToMap(lwbTasks.preset, 'preset');
+        } catch (error) {
+            console.error(`[${Constants.EXTENSION_NAME}] Error adding LWB tasks to whitelist UI:`, error);
+        }
+    }
+    // --- 新增结束 ---
+
     allReplies.forEach(r => {
         if (r.source === 'QuickReplyV2') {
             const id = `QRV2::${r.setName}`;
@@ -1567,12 +1592,16 @@ export async function populateWhitelistManagementUI() {
     nonList.innerHTML = '';
     wlList.innerHTML  = '';
 
-    map.forEach(({ scopedId, displayName }) => {
+    map.forEach(({ scopedId, displayName, source }) => { // 增加 source 参数
         const item = document.createElement('div');
         item.className = 'qrq-whitelist-item';
 
-        // 区分 JSR/QR，加 class
-        if (scopedId.startsWith('JSR::')) {
+        // 根据来源添加不同的 class 用于样式区分
+        if (source === 'LWB') {
+            item.classList.add('lwb-item');
+            const scope = scopedId.split('::')[1];
+            item.textContent = displayName.replace(`[LWB-${scope.charAt(0).toUpperCase()}] `, '');
+        } else if (scopedId.startsWith('JSR::')) {
             item.classList.add('jsr-item');
             // 去掉前缀
             item.textContent = displayName.replace(/^\[JSR\]\s*/, '');
