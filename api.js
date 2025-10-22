@@ -34,8 +34,8 @@ function getStringHash(str, seed = 0) {
 }
 
 /**
- * [已修正] 辅助函数：将 JSR 脚本数据结构"拍平"。
- * 现在兼容所有已知版本 (新、中、旧)。
+ * 辅助函数：将 JSR 脚本数据结构"拍平"。
+ * 这个版本修正了逻辑顺序，可以正确处理旧版 JSR 的数据结构。
  * @param {Array<object>} items - 从 JSR 设置中获取的原始脚本/文件夹列表。
  * @returns {Array<object>} - 一个只包含纯脚本对象的扁平数组。
  */
@@ -46,20 +46,30 @@ function flattenJsrScripts(items) {
     const flatScripts = [];
     const processItem = (item) => {
         if (!item) return;
-        // 新版结构 (src.md, e.g., item.scripts)
-        if (item.type === 'folder' && Array.isArray(item.scripts)) {
-            item.scripts.forEach(processItem); // 递归处理，以应对可能的嵌套文件夹
-        } else if (item.type === 'script') {
-            flatScripts.push(item);
+
+        // 修复了对 JSR 数据结构的解析逻辑
+        if (item.type === 'folder' && Array.isArray(item.value)) {
+            // 1. 如果是文件夹，遍历其 value 数组
+            item.value.forEach(scriptInFolder => {
+                // 确保文件夹内的对象也是有效的脚本对象
+                if (scriptInFolder && scriptInFolder.id) {
+                    flatScripts.push(scriptInFolder);
+                }
+            });
         }
-        // 中版结构 (e.g., item.value)
-        else if (item.type === 'folder' && Array.isArray(item.value)) {
-            item.value.forEach(scriptInFolder => flatScripts.push(scriptInFolder));
-        } else if (item.type === 'script' && item.value) {
-            flatScripts.push(item.value);
+        else if (item.type === 'script') {
+            // 2. 如果类型是 'script'
+            if (item.value) {
+                // 新结构: { type: 'script', value: {...} }
+                flatScripts.push(item.value);
+            } else if (item.id) {
+                // 兼容结构: { type: 'script', id: '...', ... } (没有 value 包装)
+                // 这是之前遗漏的关键情况！
+                flatScripts.push(item);
+            }
         }
-        // 旧版扁平结构 (e.g., !item.type)
         else if (!item.type && item.id) {
+            // 3. 最旧的扁平结构，没有 type 字段
             flatScripts.push(item);
         }
     };
