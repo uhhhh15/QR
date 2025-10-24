@@ -1,4 +1,4 @@
-// api.js（修复QRv2优先级过滤BUG + 保留角色QR支持和最新哈希）
+// api.js （修复QRv2优先级过滤BUG + 保留角色QR支持和最新哈希）
 import * as Constants from './constants.js';
 import { setMenuVisible } from './state.js';
 
@@ -82,16 +82,15 @@ function flattenJsrScripts(items) {
  * Also fetches JS Runner buttons directly from its settings.
  * Priority: Chat > Character > Global.
  * @returns {{ chat: Array<object>, global: Array<object> }}
- * 默认禁用同名过滤机制，但原有逻辑进行保留，只进行注释，不修改原有处理逻辑
  */
 export function fetchQuickReplies() {
     const stContext = (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) ? SillyTavern.getContext() : null;
 
-    console.log(`[${Constants.EXTENSION_NAME} Debug] fetchQuickReplies called (No-Filter Mode).`);
+    console.log(`[${Constants.EXTENSION_NAME} Debug] fetchQuickReplies called.`);
 
     const finalChatReplies = [];
     const finalGlobalReplies = [];
-    // const processedLabels = new Set(); // 已禁用同名过滤
+    const processedLabels = new Set();
 
     // --- 1. 获取并处理标准 Quick Reply v2 (逻辑不变) ---
     const processedSetNames = new Set();
@@ -107,10 +106,9 @@ export function fetchQuickReplies() {
                     setLink.set.qrList.forEach(qr => {
                         if (qr && !qr.isHidden && qr.label) {
                             const label = qr.label.trim();
-                            // 修改点: 移除了 !processedLabels.has(label)
-                            if (label) {
+                            if (label && !processedLabels.has(label)) {
                                 destinationList.push({ setName, label, message: qr.message || `(Standard Reply: ${label})`, isStandard: true, source: 'QuickReplyV2' });
-                                // processedLabels.add(label); // 已禁用
+                                processedLabels.add(label);
                             }
                         }
                     });
@@ -134,14 +132,19 @@ export function fetchQuickReplies() {
         console.log(`[${Constants.EXTENSION_NAME}] Using new Tavern Helper runtime API.`);
         const enabledButtonsMap = newApi();
 
+        // 为了获取脚本名称，我们需要从 *新版* 的正确位置解析设置
         const scriptNameMap = new Map();
         const allScripts = [];
 
+        // 健壮性措施：同时检查新版(tavern_helper)和旧版(TavernHelper)的设置键
         const jsrGlobalSettings = stContext?.extensionSettings?.[JSR_DATA_KEY] || stContext?.extensionSettings?.[JSR_SETTINGS_KEY];
+
+        // 1. 搜集全局脚本 (兼容新旧键名和路径)
         if (jsrGlobalSettings?.script?.scripts) {
             allScripts.push(...flattenJsrScripts(jsrGlobalSettings.script.scripts));
         }
 
+        // 2. 搜集预设脚本 (兼容新旧键名)
         const presetName = stContext.presetName;
         if (presetName) {
             const presetJsrSettings = stContext.presets?.[presetName]?.extensions?.[JSR_DATA_KEY] || stContext.presets?.[presetName]?.extensions?.[JSR_SETTINGS_KEY];
@@ -150,17 +153,19 @@ export function fetchQuickReplies() {
             }
         }
 
+        // 3. 搜集角色脚本 (兼容新旧键名，并处理数组格式)
         const characterId = stContext.characterId;
         if (characterId != null) {
             const characterScriptsRaw = stContext.characters?.[characterId]?.data?.extensions?.[JSR_DATA_KEY] || stContext.characters?.[characterId]?.data?.extensions?.[JSR_SETTINGS_KEY];
             if (characterScriptsRaw) {
                 let characterSettingsObject = characterScriptsRaw;
+                // 核心修复：如果数据是 [key, value] 数组，则转换回对象
                 if (Array.isArray(characterScriptsRaw)) {
                     try {
                         characterSettingsObject = Object.fromEntries(characterScriptsRaw);
                     } catch (e) {
                         console.error(`[${Constants.EXTENSION_NAME}] Failed to convert character scripts from array to object.`, e);
-                        characterSettingsObject = {};
+                        characterSettingsObject = {}; // 转换失败则置为空对象
                     }
                 }
 
@@ -176,8 +181,15 @@ export function fetchQuickReplies() {
             const buttons = enabledButtonsMap[script_id];
             buttons.forEach(button => {
                 const label = button.button_name.trim();
-                // 修改点: 移除了 !processedLabels.has(label)
-                if (label) {
+                if (label && !processedLabels.has(label)) {
+
+                    // --- 调试日志：检查名称查找 ---
+                    if (scriptNameMap.has(script_id)) {
+                        console.log(`[${Constants.EXTENSION_NAME} Debug] Name found for ID ${script_id}: "${scriptNameMap.get(script_id)}"`);
+                    } else {
+                        console.warn(`[${Constants.EXTENSION_NAME} Debug] Script name NOT FOUND for ID: ${script_id}. Button: "${label}"`);
+                    }
+
                     const scriptName = scriptNameMap.get(script_id) || 'JS Script';
                     finalChatReplies.push({
                         setName: scriptName,
@@ -185,11 +197,11 @@ export function fetchQuickReplies() {
                         message: `(JS Script: ${scriptName})`,
                         isStandard: false,
                         source: 'JSSlashRunner',
-                        isApiBased: true,
-                        buttonId: button.button_id,
-                        scriptId: script_id
+                        isApiBased: true,           // 标志：使用新API
+                        buttonId: button.button_id, // 核心：存储预计算的button_id
+                        scriptId: script_id         // [白名单兼容补充] 始终包含 scriptId
                     });
-                    // processedLabels.add(label); // 已禁用
+                    processedLabels.add(label);
                 }
             });
         }
@@ -201,22 +213,21 @@ export function fetchQuickReplies() {
         const processScripts = (scripts) => {
             if (!scripts || !Array.isArray(scripts)) return;
             scripts.forEach(script => {
-                if (script && script.enabled && script.buttons && Array.isArray(script.buttons)) {
+                if (script && script.enabled && script.buttons && Array.isArray(script.buttons)) { // 使用旧版 .buttons 路径
                     script.buttons.forEach(button => {
                         if (button && button.visible && button.name) {
                             const label = button.name.trim();
-                            // 修改点: 移除了 !processedLabels.has(label)
-                            if (label) {
+                            if (label && !processedLabels.has(label)) {
                                 finalChatReplies.push({
                                     setName: script.name || 'JS Script',
                                     label: label,
                                     message: `(JS Script: ${script.name || 'Untitled'})`,
                                     isStandard: false,
                                     source: 'JSSlashRunner',
-                                    isApiBased: false,
-                                    scriptId: script.id
+                                    isApiBased: false,      // 标志：不使用新API
+                                    scriptId: script.id     // 核心：存储 scriptId 用于手动触发
                                 });
-                                // processedLabels.add(label); // 已禁用
+                                processedLabels.add(label);
                             }
                         }
                     });
@@ -224,6 +235,7 @@ export function fetchQuickReplies() {
             });
         };
 
+        // 使用旧的启用标志和脚本仓库路径
         if (jsRunnerSettings.script?.global_script_enabled !== false) {
             processScripts(flattenJsrScripts(jsRunnerSettings.script?.scriptsRepository));
         }
@@ -250,8 +262,7 @@ export function fetchQuickReplies() {
                 tasks.forEach(task => {
                     if (task && !task.disabled && task.name) {
                         const label = task.name.trim();
-                        // 修改点: 移除了 !processedLabels.has(label)
-                        if (label) {
+                        if (label && !processedLabels.has(label)) {
                             destinationList.push({
                                 setName: `LWB-${scope.charAt(0).toUpperCase()}`,
                                 label: label,
@@ -259,7 +270,7 @@ export function fetchQuickReplies() {
                                 isStandard: false, source: 'LittleWhiteBox',
                                 taskId: task.name, taskScope: scope,
                             });
-                            // processedLabels.add(label); // 已禁用
+                            processedLabels.add(label);
                         }
                     }
                 });
@@ -275,7 +286,6 @@ export function fetchQuickReplies() {
     console.log(`[${Constants.EXTENSION_NAME} Debug] Final fetch results - Chat: ${finalChatReplies.length}, Global: ${finalGlobalReplies.length}`);
     return { chat: finalChatReplies, global: finalGlobalReplies };
 }
-
 
 /**
  * Triggers a specific standard quick reply using the API.
