@@ -238,51 +238,68 @@ function handleChatLoaded() {
 }
 
 
-onReady(() => {
-    console.log(`[${Constants.EXTENSION_NAME}] onReady callback executed.`);
-    try {
-        loadSettingsFromLocalStorage();
+// 使用自执行函数来封装启动逻辑
+(function () {
+    console.log(`[${Constants.EXTENSION_NAME}] Startup sequence initiated.`);
 
-        let settingsContainer = document.getElementById('extensions_settings');
-        if (!settingsContainer) {
-            console.warn(`[${Constants.EXTENSION_NAME}] #extensions_settings not found. Creating dummy container.`);
-            settingsContainer = document.createElement('div');
-            settingsContainer.id = 'extensions_settings';
-            settingsContainer.style.display = 'none';
-            document.body.appendChild(settingsContainer);
-        }
+    // 1. 立即执行与DOM相关的早期任务，这些任务不依赖SillyTavern核心
+    loadSettingsFromLocalStorage();
 
-        const settingsHtml = createSettingsHtml();
-        settingsContainer.insertAdjacentHTML('beforeend', settingsHtml);
-
-        const st = (typeof SillyTavern !== 'undefined') ? SillyTavern : null;
-        const stEventTypes = st?.eventSource?.event_types;
-
-        if (st && st.eventSource && stEventTypes && stEventTypes.EXTENSION_SETTINGS_LOADED) {
-            if (window.extension_settings[JSR_SETTINGS_KEY]) {
-                performInitialization();
-            } else {
-                st.eventSource.once(stEventTypes.EXTENSION_SETTINGS_LOADED, performInitialization);
-            }
-
-            if (stEventTypes.CHAT_CHANGED) {
-                 st.eventSource.on(stEventTypes.CHAT_CHANGED, handleChatLoaded);
-                 console.log(`[${Constants.EXTENSION_NAME}] Successfully attached to 'CHAT_CHANGED' event.`);
-            }
-
-        } else {
-            console.warn(`[${Constants.EXTENSION_NAME}] SillyTavern event system not available. Initializing with a delay.`);
-            setTimeout(performInitialization, 2000);
-        }
-
-    } catch (err) {
-        console.error(`[${Constants.EXTENSION_NAME}] Startup failed:`, err);
+    // 确保设置容器存在，并注入HTML
+    let settingsContainer = document.getElementById('extensions_settings');
+    if (!settingsContainer) {
+        console.warn(`[${Constants.EXTENSION_NAME}] #extensions_settings not found. Creating dummy container.`);
+        settingsContainer = document.createElement('div');
+        settingsContainer.id = 'extensions_settings';
+        settingsContainer.style.display = 'none';
+        document.body.appendChild(settingsContainer);
     }
+    const settingsHtml = createSettingsHtml();
+    settingsContainer.insertAdjacentHTML('beforeend', settingsHtml);
 
-    // 最终的 window.onload 检查 (保险措施)
+    // 2. 定义一个健壮的轮询函数，等待 SillyTavern 上下文可用
+    const waitForSillyTavernContext = () => {
+        // 检查官方的 getContext 函数是否已准备好
+        if (window.SillyTavern && typeof window.SillyTavern.getContext === 'function') {
+            
+            // 获取上下文
+            const context = window.SillyTavern.getContext();
+
+            // 检查上下文中的事件系统是否也已准备好
+            if (context && context.eventSource && context.eventTypes && context.eventTypes.APP_READY) {
+                
+                // 成功！现在可以安全地挂载事件监听器
+                console.log(`[${Constants.EXTENSION_NAME}] SillyTavern context is ready. Awaiting APP_READY event.`);
+                
+                // 使用 once 确保核心初始化只执行一次
+                context.eventSource.once(context.eventTypes.APP_READY, () => {
+                    console.log(`[${Constants.EXTENSION_NAME}] APP_READY event received. Performing main initialization.`);
+                    performInitialization();
+                });
+
+                // 挂载用于后续动态更新的事件
+                if (context.eventTypes.CHAT_CHANGED) {
+                    context.eventSource.on(context.eventTypes.CHAT_CHANGED, handleChatLoaded);
+                    console.log(`[${Constants.EXTENSION_NAME}] Successfully attached to 'CHAT_CHANGED' event.`);
+                }
+
+            } else {
+                // getContext存在，但事件系统可能尚未完全初始化，继续等待
+                setTimeout(waitForSillyTavernContext, 150);
+            }
+        } else {
+            // SillyTavern 核心或 getContext 函数尚未准备好，继续等待
+            setTimeout(waitForSillyTavernContext, 150);
+        }
+    };
+
+    // 3. 启动轮询
+    waitForSillyTavernContext();
+
+    // 4. 保留 window.onload 作为最终的保险措施，处理极端加载情况
     window.addEventListener('load', () => {
         if (pluginInitialized && !finalCheckPerformed) {
-            console.log(`[${Constants.EXTENSION_NAME}] Window 'load' event fired. Performing final whitelist check.`);
+            console.log(`[${Constants.EXTENSION_NAME}] Window 'load' event fired. Performing final whitelist check as a fallback.`);
             setTimeout(() => {
                 if (window.quickReplyMenu?.applyWhitelistDOMChanges) {
                     window.quickReplyMenu.applyWhitelistDOMChanges();
@@ -291,4 +308,5 @@ onReady(() => {
             }, 1500);
         }
     });
-});
+
+})();
