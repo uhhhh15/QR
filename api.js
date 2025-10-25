@@ -139,43 +139,104 @@ export function fetchQuickReplies() {
         // 健壮性措施：同时检查新版(tavern_helper)和旧版(TavernHelper)的设置键
         const jsrGlobalSettings = stContext?.extensionSettings?.[JSR_DATA_KEY] || stContext?.extensionSettings?.[JSR_SETTINGS_KEY];
 
-        // 1. 搜集全局脚本 (兼容新旧键名和路径)
-        if (jsrGlobalSettings?.script?.scripts) {
-            allScripts.push(...flattenJsrScripts(jsrGlobalSettings.script.scripts));
+        // 1. 搜索全局脚本 (Global Scripts)
+        // --- 增加对新旧两种全局脚本路径的兼容性检查 ---
+        let globalScriptsSource = null;
+        if (jsrGlobalSettings?.scripts) {
+            // 检查新结构: TavernHelper.scripts
+            globalScriptsSource = jsrGlobalSettings.scripts;
+            console.log(`[${Constants.EXTENSION_NAME} Debug] Found global JSR scripts in modern path (settings.scripts).`);
+        } else if (jsrGlobalSettings?.script?.scripts) {
+            // 检查旧结构: TavernHelper.script.scripts
+            globalScriptsSource = jsrGlobalSettings.script.scripts;
+            console.log(`[${Constants.EXTENSION_NAME} Debug] Found global JSR scripts in legacy path (settings.script.scripts).`);
         }
 
-        // 2. 搜集预设脚本 (兼容新旧键名)
+        if (globalScriptsSource) {
+            const flattenedGlobal = flattenJsrScripts(globalScriptsSource);
+            allScripts.push(...flattenedGlobal);
+            console.log(`[${Constants.EXTENSION_NAME} Debug] Found and flattened global JSR scripts, count:`, flattenedGlobal.length);
+        } else {
+            console.log(`[${Constants.EXTENSION_NAME} Debug] Global JSR scripts not found in any expected location.`);
+        }
+
+        // 2. 搜索预设脚本 (Preset Scripts)
         const presetName = stContext.presetName;
-        if (presetName) {
+        if (presetName && stContext.presets) {
             const presetJsrSettings = stContext.presets?.[presetName]?.extensions?.[JSR_DATA_KEY] || stContext.presets?.[presetName]?.extensions?.[JSR_SETTINGS_KEY];
             if (presetJsrSettings?.scripts) {
-                allScripts.push(...flattenJsrScripts(presetJsrSettings.scripts));
+                const flattenedPreset = flattenJsrScripts(presetJsrSettings.scripts);
+                allScripts.push(...flattenedPreset);
+                console.log(`[${Constants.EXTENSION_NAME} Debug] Found and flattened JSR scripts from preset '${presetName}', count:`, flattenedPreset.length);
+            } else {
+                 console.log(`[${Constants.EXTENSION_NAME} Debug] No JSR scripts found in preset '${presetName}'.`);
             }
+        } else {
+             console.log(`[${Constants.EXTENSION_NAME} Debug] Preset name or presets object not available in context. Skipping preset script search.`);
         }
 
-        // 3. 搜集角色脚本 (兼容新旧键名，并处理数组格式)
+        // 3. 搜索角色脚本 (Character Scripts) - 增强版搜索
         const characterId = stContext.characterId;
-        if (characterId != null) {
-            const characterScriptsRaw = stContext.characters?.[characterId]?.data?.extensions?.[JSR_DATA_KEY] || stContext.characters?.[characterId]?.data?.extensions?.[JSR_SETTINGS_KEY];
-            if (characterScriptsRaw) {
-                let characterSettingsObject = characterScriptsRaw;
-                // 核心修复：如果数据是 [key, value] 数组，则转换回对象
-                if (Array.isArray(characterScriptsRaw)) {
-                    try {
-                        characterSettingsObject = Object.fromEntries(characterScriptsRaw);
-                    } catch (e) {
-                        console.error(`[${Constants.EXTENSION_NAME}] Failed to convert character scripts from array to object.`, e);
-                        characterSettingsObject = {}; // 转换失败则置为空对象
+        if (characterId != null && stContext.characters) {
+            const characterData = stContext.characters[characterId]?.data;
+            if (characterData?.extensions) {
+                let foundCharScripts = false;
+
+                // 3.1 尝试从新版标准位置获取 (JSR v4+)
+                let characterScriptsRaw = characterData.extensions[JSR_DATA_KEY] || characterData.extensions[JSR_SETTINGS_KEY];
+                console.log(`[${Constants.EXTENSION_NAME} Debug] Checking for character JSR scripts (new path) for charId ${characterId}:`, characterScriptsRaw ? 'Found' : 'Not found');
+
+                if (characterScriptsRaw) {
+                    let characterSettingsObject = characterScriptsRaw;
+                    if (Array.isArray(characterScriptsRaw)) {
+                        try { characterSettingsObject = Object.fromEntries(characterScriptsRaw); }
+                        catch (e) {
+                            console.error(`[${Constants.EXTENSION_NAME}] Failed to convert character scripts from array to object.`, e);
+                            characterSettingsObject = {};
+                        }
+                    }
+
+                    if (characterSettingsObject?.scripts) {
+                        const flattenedChar = flattenJsrScripts(characterSettingsObject.scripts);
+                        allScripts.push(...flattenedChar);
+                        console.log(`[${Constants.EXTENSION_NAME} Debug] Found and flattened character JSR scripts (new path), count:`, flattenedChar.length);
+                        foundCharScripts = true;
                     }
                 }
 
-                if (characterSettingsObject?.scripts) {
-                    allScripts.push(...flattenJsrScripts(characterSettingsObject.scripts));
+                // 3.2
+                // 作为备用，额外检查旧版 JSR 在角色卡中存储脚本的键 (JSR_CHAR_EXTENSION_KEY)
+                // 这可以捕获那些新版查找逻辑可能遗漏的脚本定义
+                const legacyCharacterScripts = characterData.extensions[JSR_CHAR_EXTENSION_KEY];
+                if (legacyCharacterScripts) {
+                     console.log(`[${Constants.EXTENSION_NAME} Debug] Found character JSR scripts via legacy key (JSR_CHAR_EXTENSION_KEY). Flattening as a fallback.`);
+                     const flattenedLegacyChar = flattenJsrScripts(legacyCharacterScripts);
+                     const existingIds = new Set(allScripts.map(s => s.id));
+                     flattenedLegacyChar.forEach(script => {
+                         if (!existingIds.has(script.id)) {
+                             allScripts.push(script);
+                             foundCharScripts = true;
+                         }
+                     });
+                     console.log(`[${Constants.EXTENSION_NAME} Debug] Added legacy character scripts to name map pool, count:`, flattenedLegacyChar.length);
                 }
+
+                if (!foundCharScripts) {
+                    console.log(`[${Constants.EXTENSION_NAME} Debug] No character-specific JSR scripts found for charId ${characterId}.`);
+                }
+
+            } else {
+                 console.log(`[${Constants.EXTENSION_NAME} Debug] Character data or extensions not available for charId ${characterId}.`);
             }
+        } else {
+            console.log(`[${Constants.EXTENSION_NAME} Debug] Character ID or characters object not available in context. Skipping character script search.`);
         }
 
-        allScripts.forEach(script => scriptNameMap.set(script.id, script.name));
+		allScripts.forEach(script => {
+			if (script && script.id && script.name) {
+				scriptNameMap.set(script.id, script.name);
+			}
+		});
 
         for (const script_id in enabledButtonsMap) {
             const buttons = enabledButtonsMap[script_id];
