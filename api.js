@@ -139,18 +139,22 @@ export function fetchQuickReplies() {
         // 健壮性措施：同时检查新版(tavern_helper)和旧版(TavernHelper)的设置键
         const jsrGlobalSettings = stContext?.extensionSettings?.[JSR_DATA_KEY] || stContext?.extensionSettings?.[JSR_SETTINGS_KEY];
 
-        // 1. 搜索全局脚本 (Global Scripts)
-        // --- 增加对新旧两种全局脚本路径的兼容性检查 ---
-        let globalScriptsSource = null;
-        if (jsrGlobalSettings?.scripts) {
-            // 检查新结构: TavernHelper.scripts
-            globalScriptsSource = jsrGlobalSettings.scripts;
-            console.log(`[${Constants.EXTENSION_NAME} Debug] Found global JSR scripts in modern path (settings.scripts).`);
-        } else if (jsrGlobalSettings?.script?.scripts) {
-            // 检查旧结构: TavernHelper.script.scripts
-            globalScriptsSource = jsrGlobalSettings.script.scripts;
-            console.log(`[${Constants.EXTENSION_NAME} Debug] Found global JSR scripts in legacy path (settings.script.scripts).`);
-        }
+		// 1. 搜索全局脚本 (Global Scripts)
+		// --- 增加对新旧两种全局脚本路径的兼容性检查 ---
+		let globalScriptsSource = null;
+		if (jsrGlobalSettings?.scripts) {
+		    // 检查新结构: TavernHelper.scripts
+		    globalScriptsSource = jsrGlobalSettings.scripts;
+		    console.log(`[${Constants.EXTENSION_NAME} Debug] Found global JSR scripts in modern path (settings.scripts).`);
+		} else if (jsrGlobalSettings?.script?.scripts) {
+		    // 检查旧结构: TavernHelper.script.scripts
+		    globalScriptsSource = jsrGlobalSettings.script.scripts;
+		    console.log(`[${Constants.EXTENSION_NAME} Debug] Found global JSR scripts in legacy path (settings.script.scripts).`);
+		} else if (jsrGlobalSettings?.script?.scriptsRepository) {
+		    // 检查更旧的结构: TavernHelper.script.scriptsRepository
+		    globalScriptsSource = jsrGlobalSettings.script.scriptsRepository;
+		    console.log(`[${Constants.EXTENSION_NAME} Debug] Found global JSR scripts in fallback path (settings.script.scriptsRepository).`);
+		}
 
         if (globalScriptsSource) {
             const flattenedGlobal = flattenJsrScripts(globalScriptsSource);
