@@ -4,7 +4,7 @@ import * as Constants from './constants.js';
 import { getRequestHeaders } from '../../../../script.js';
 
 // 远程仓库配置
-const REPO_ROOT = "https://raw.githubusercontent.com/conniegarde8/QR/main";
+const REPO_ROOT = "https://raw.githubusercontent.com/uhhhh15/QR/main";
 const MANIFEST_URL = `${REPO_ROOT}/manifest.json`;
 const CHANGELOG_URL = `${REPO_ROOT}/CHANGELOG.md`;
 
@@ -217,4 +217,5 @@ export async function performUpdate() {
         console.error("Update failed:", e);
         return { ok: false };
     }
+
 }
